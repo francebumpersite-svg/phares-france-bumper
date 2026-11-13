@@ -1,0 +1,224 @@
+import { useEffect, useState } from 'react';
+import { useDonnees } from '../lib/donnees.jsx';
+import { appelFonction } from '../lib/supabase.js';
+import { Champ, Feuille, Interrupteur, Segments } from '../composants/ui.jsx';
+import { BandeauSynchro } from './Shopify.jsx';
+
+const ONGLETS = [
+  ['a_commander', 'À commander'],
+  ['dropshipping', 'Dropshipping'],
+  ['base', 'Base Chine'],
+  ['ruptures', 'Ruptures'],
+  ['meilleures_ventes', 'Meilleures ventes'],
+  ['non_compatibles', 'Non compatibles'],
+  ['retours', 'Retours client']
+];
+const CHAMPS = [
+  ['prix_vente', 'Prix de vente'],
+  ['prix_achat', "Prix d'achat"],
+  ['marge', 'Marge'],
+  ['fournisseur', 'Fournisseur, lien et réf. fournisseur']
+];
+const ROLES = { admin: 'Administrateur', vendeur: 'Vendeur', chine: 'Collègue Chine' };
+
+export default function Reglages() {
+  const d = useDonnees();
+  const r = d.reglages || {};
+  const [comptes, setComptes] = useState(d.equipe);
+  const [nouveau, setNouveau] = useState(false);
+  const [edition, setEdition] = useState(null);
+  const [filtre, setFiltre] = useState(r.filtre_shopify || 'phare*');
+  const [msg, setMsg] = useState('');
+
+  const chargerComptes = async () => {
+    try {
+      const res = await appelFonction('comptes', { action: 'liste' });
+      setComptes(res.comptes);
+    } catch {
+      /* hors connexion : on garde la liste en cache */
+    }
+  };
+  useEffect(() => {
+    if (d.enLigne) chargerComptes();
+  }, [d.enLigne]);
+
+  const basculerOnglet = (k) => (v) => d.enregistrerReglages({ onglets_vendeur: { ...(r.onglets_vendeur || {}), [k]: v } });
+  const basculerChamp = (k) => (v) => d.enregistrerReglages({ champs_vendeur: { ...(r.champs_vendeur || {}), [k]: v } });
+
+  async function modifierCompte(id, champs) {
+    setMsg('');
+    try {
+      await appelFonction('comptes', { action: 'modifier', id, ...champs });
+      await chargerComptes();
+      d.recharger();
+    } catch (e) {
+      setMsg(e.message);
+    }
+  }
+
+  return (
+    <main>
+      <h2 className="groupe">Shopify</h2>
+      <BandeauSynchro />
+      <div className="bloc" style={{ background: 'var(--carte)' }}>
+        <Champ label="Quels produits Shopify sont des phares ?" aide="Recherche Shopify. Par défaut « phare* » = tous les produits dont le titre contient un mot commençant par « phare ».">
+          <div className="avec-bouton">
+            <input value={filtre} onChange={(e) => setFiltre(e.target.value)} />
+            <button type="button" className="petit-bouton neutre" disabled={filtre === r.filtre_shopify} onClick={() => d.enregistrerReglages({ filtre_shopify: filtre.trim() || 'phare*' })}>
+              OK
+            </button>
+          </div>
+        </Champ>
+      </div>
+
+      <h2 className="groupe">
+        Comptes
+        <button type="button" className="lien-btn" onClick={() => setNouveau(true)} disabled={!d.enLigne}>
+          + Ajouter un compte
+        </button>
+      </h2>
+      {!d.enLigne && <div className="bandeau attention">La gestion des comptes demande du réseau.</div>}
+      {msg && <div className="bandeau erreur">{msg}</div>}
+      <div className="lignes">
+        {comptes.map((c) => (
+          <div className="ligne-r" key={c.id}>
+            <button type="button" className="ouvrir" style={{ flex: 1 }} onClick={() => setEdition(c)} disabled={!d.enLigne}>
+              <span style={{ fontWeight: 600 }}>{c.nom}</span>
+              <small>
+                {ROLES[c.role]} · {c.identifiant} · <span style={{ color: c.actif ? 'var(--vert-texte)' : 'var(--rouge-fonce)', fontWeight: 600 }}>{c.actif ? 'Actif' : 'Bloqué'}</span>
+              </small>
+            </button>
+            {c.id !== d.profil.id && <Interrupteur actif={c.actif} label={`Compte de ${c.nom} actif`} onChange={(v) => modifierCompte(c.id, { actif: v })} />}
+          </div>
+        ))}
+      </div>
+
+      <h2 className="groupe">Onglets que les vendeurs voient</h2>
+      <div className="lignes">
+        {ONGLETS.map(([k, l]) => (
+          <div className="ligne-r" key={k}>
+            <span>{l}</span>
+            <Interrupteur actif={!!r.onglets_vendeur?.[k]} label={l} onChange={basculerOnglet(k)} />
+          </div>
+        ))}
+      </div>
+      <div className="aide" style={{ padding: '6px 2px' }}>
+        L'onglet « J'ai vendu un phare » est toujours visible pour les vendeurs. Le collègue en Chine ne voit que les commandes dropshipping (sans les montants).
+      </div>
+
+      <h2 className="groupe">Infos que les vendeurs voient dans les fiches</h2>
+      <div className="lignes">
+        <div className="ligne-r">
+          <span>
+            Photos, modèle, année, côté, réf. d'origine
+            <small>Toujours visibles</small>
+          </span>
+        </div>
+        {CHAMPS.map(([k, l]) => (
+          <div className="ligne-r" key={k}>
+            <span>{l}</span>
+            <Interrupteur actif={!!r.champs_vendeur?.[k]} label={l} onChange={basculerChamp(k)} />
+          </div>
+        ))}
+      </div>
+      <div style={{ height: 24 }} />
+
+      {nouveau && <NouveauCompte onFermer={() => setNouveau(false)} onCree={chargerComptes} />}
+      {edition && (
+        <ModifierCompte
+          compte={edition}
+          moi={edition.id === d.profil.id}
+          onFermer={() => setEdition(null)}
+          onModifier={async (champs) => {
+            await modifierCompte(edition.id, champs);
+            setEdition(null);
+          }}
+        />
+      )}
+    </main>
+  );
+}
+
+function NouveauCompte({ onFermer, onCree }) {
+  const [c, setC] = useState({ nom: '', identifiant: '', mot_de_passe: '', role: 'vendeur' });
+  const [erreur, setErreur] = useState('');
+  const [occupe, setOccupe] = useState(false);
+  const maj = (k) => (e) => setC((x) => ({ ...x, [k]: e?.target ? e.target.value : e }));
+  return (
+    <Feuille
+      titre="Nouveau compte"
+      onFermer={onFermer}
+      pied={
+        <>
+          {erreur && <div className="bandeau erreur">{erreur}</div>}
+          <button
+            type="button"
+            className="btn btn-rouge btn-plein"
+            disabled={occupe}
+            onClick={async () => {
+              setErreur('');
+              setOccupe(true);
+              try {
+                await appelFonction('comptes', { action: 'creer', ...c, identifiant: c.identifiant.trim().toLowerCase() });
+                await onCree();
+                onFermer();
+              } catch (e) {
+                setErreur(e.message);
+              } finally {
+                setOccupe(false);
+              }
+            }}
+          >
+            {occupe ? 'Création…' : 'Créer le compte'}
+          </button>
+        </>
+      }
+    >
+      <Champ label="Rôle">
+        <Segments valeur={c.role} onChange={maj('role')} options={[['vendeur', 'Vendeur'], ['chine', 'Collègue Chine'], ['admin', 'Admin']]} />
+      </Champ>
+      <Champ label="Nom">
+        <input value={c.nom} onChange={maj('nom')} placeholder="Ex. Karim" />
+      </Champ>
+      <Champ label="Identifiant" aide="Lettres minuscules et chiffres, sans espace. C'est ce qu'il tapera pour se connecter.">
+        <input value={c.identifiant} onChange={maj('identifiant')} autoCapitalize="none" autoCorrect="off" placeholder="Ex. karim" />
+      </Champ>
+      <Champ label="Mot de passe" aide="8 caractères minimum. Donne-le lui de vive voix.">
+        <input value={c.mot_de_passe} onChange={maj('mot_de_passe')} autoCapitalize="none" autoCorrect="off" />
+      </Champ>
+    </Feuille>
+  );
+}
+
+function ModifierCompte({ compte, moi, onFermer, onModifier }) {
+  const [nom, setNom] = useState(compte.nom);
+  const [role, setRole] = useState(compte.role);
+  const [mdp, setMdp] = useState('');
+  return (
+    <Feuille
+      titre={`Compte de ${compte.nom}`}
+      onFermer={onFermer}
+      pied={
+        <button
+          type="button"
+          className="btn btn-rouge btn-plein"
+          onClick={() => onModifier({ nom, ...(moi ? {} : { role }), ...(mdp ? { mot_de_passe: mdp } : {}) })}
+        >
+          Enregistrer
+        </button>
+      }
+    >
+      <Champ label="Nom">
+        <input value={nom} onChange={(e) => setNom(e.target.value)} />
+      </Champ>
+      {!moi && (
+        <Champ label="Rôle">
+          <Segments valeur={role} onChange={setRole} options={[['vendeur', 'Vendeur'], ['chine', 'Collègue Chine'], ['admin', 'Admin']]} />
+        </Champ>
+      )}
+      <Champ label="Nouveau mot de passe" aide="Laisse vide pour ne pas le changer.">
+        <input value={mdp} onChange={(e) => setMdp(e.target.value)} autoCapitalize="none" autoCorrect="off" />
+      </Champ>
+    </Feuille>
+  );
+}

@@ -1,0 +1,7 @@
+project_id = "phares-france-bumper"
+
+[functions.comptes]
+verify_jwt = false
+
+[functions.sync-shopify]
+verify_jwt = false
