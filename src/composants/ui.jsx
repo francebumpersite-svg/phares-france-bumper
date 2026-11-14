@@ -118,12 +118,16 @@ export function PhotoGrande({ chemin, url, chemins, depart = 0, onFermer }) {
   const liste = chemins && chemins.length ? chemins : [chemin || url];
   const [i, setI] = useState(Math.min(depart, liste.length - 1));
   const [zoom, setZoom] = useState(1);
-  const toucheX = useRef(null);
+  const zoneRef = useRef(null);
+  const geste = useRef({ dist: 0, zoomDepart: 1, x: null, dernierTap: 0 });
+  const zoomRef = useRef(1);
+  zoomRef.current = zoom;
   const src = (c) => (c && /^https?:|^blob:/.test(c) ? c : srcPhoto(c));
   const aller = (d) => {
     setZoom(1);
     setI((x) => (x + d + liste.length) % liste.length);
   };
+
   useEffect(() => {
     const avant = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -138,6 +142,57 @@ export function PhotoGrande({ chemin, url, chemins, depart = 0, onFermer }) {
       window.removeEventListener('keydown', touche);
     };
   }, []);
+
+  // Zoom au doigt (pincement) et double appui, gérés à la main pour marcher aussi sur iPhone
+  useEffect(() => {
+    const z = zoneRef.current;
+    if (!z) return;
+    const distance = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const debut = (e) => {
+      if (e.touches.length === 2) {
+        geste.current.dist = distance(e.touches);
+        geste.current.zoomDepart = zoomRef.current;
+        e.preventDefault();
+      } else if (e.touches.length === 1) {
+        geste.current.x = e.touches[0].clientX;
+      }
+    };
+    const bouge = (e) => {
+      if (e.touches.length === 2 && geste.current.dist) {
+        e.preventDefault();
+        const n = (geste.current.zoomDepart * distance(e.touches)) / geste.current.dist;
+        setZoom(Math.max(1, Math.min(5, Math.round(n * 20) / 20)));
+      }
+    };
+    const fin = (e) => {
+      if (e.touches.length < 2) geste.current.dist = 0;
+      if (e.touches.length === 0 && e.changedTouches.length === 1) {
+        const t = e.changedTouches[0];
+        const maintenant = Date.now();
+        if (maintenant - geste.current.dernierTap < 300) {
+          setZoom((v) => (v > 1 ? 1 : 2.5));
+          geste.current.dernierTap = 0;
+          geste.current.toggleTactile = maintenant;
+          return;
+        }
+        geste.current.dernierTap = maintenant;
+        if (zoomRef.current === 1 && geste.current.x != null && liste.length > 1) {
+          const dx = t.clientX - geste.current.x;
+          if (Math.abs(dx) > 60) aller(dx < 0 ? 1 : -1);
+        }
+        geste.current.x = null;
+      }
+    };
+    z.addEventListener('touchstart', debut, { passive: false });
+    z.addEventListener('touchmove', bouge, { passive: false });
+    z.addEventListener('touchend', fin);
+    return () => {
+      z.removeEventListener('touchstart', debut);
+      z.removeEventListener('touchmove', bouge);
+      z.removeEventListener('touchend', fin);
+    };
+  }, [liste.length]);
+
   return createPortal(
     <div className="visionneuse" role="dialog" aria-modal="true" aria-label="Photo agrandie">
       <div className="vis-barre">
@@ -148,20 +203,16 @@ export function PhotoGrande({ chemin, url, chemins, depart = 0, onFermer }) {
           <button type="button" onClick={onFermer} aria-label="Fermer">×</button>
         </div>
       </div>
-      <div
-        className="vis-zone"
-        onTouchStart={(e) => { toucheX.current = e.touches.length === 1 ? e.touches[0].clientX : null; }}
-        onTouchEnd={(e) => {
-          if (zoom !== 1 || toucheX.current == null || liste.length < 2) return;
-          const dx = e.changedTouches[0].clientX - toucheX.current;
-          if (Math.abs(dx) > 60) aller(dx < 0 ? 1 : -1);
-          toucheX.current = null;
-        }}
-      >
+      <div className="vis-zone" ref={zoneRef}>
         <img
           src={src(liste[i])}
           alt={`Photo ${i + 1}`}
-          onDoubleClick={() => setZoom((z) => (z > 1 ? 1 : 2.5))}
+          draggable={false}
+          onDoubleClick={() => {
+            // Sur téléphone, le double appui est déjà géré au doigt : on ignore le « double-clic » qui suit
+            if (Date.now() - (geste.current.toggleTactile || 0) < 800) return;
+            setZoom((z) => (z > 1 ? 1 : 2.5));
+          }}
           style={zoom > 1 ? { width: `${zoom * 100}%`, maxWidth: 'none', maxHeight: 'none' } : null}
         />
       </div>

@@ -190,6 +190,25 @@ function Coque() {
           </button>
           <button
             type="button"
+            className="btn"
+            disabled={!enLigne}
+            onClick={async () => {
+              try {
+                const regs = (await navigator.serviceWorker?.getRegistrations?.()) || [];
+                await Promise.all(regs.map((r) => r.unregister()));
+                const cles = (await caches?.keys?.()) || [];
+                await Promise.all(cles.filter((c) => !/photos|images/.test(c)).map((c) => caches.delete(c)));
+              } catch {
+                /* rien */
+              }
+              window.location.reload();
+            }}
+          >
+            Mettre à jour l'appli
+          </button>
+          <div className="aide" style={{ textAlign: 'center' }}>Version du {__VERSION__}</div>
+          <button
+            type="button"
             className="btn btn-danger"
             onClick={async () => {
               if (file.length && !window.confirm('Des envois sont encore en attente. Te déconnecter quand même ? Ils seront perdus.')) return;
