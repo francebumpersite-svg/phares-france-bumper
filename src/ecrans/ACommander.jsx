@@ -115,7 +115,7 @@ export default function ACommander() {
             <div className="liste">
               {suggestions.map(({ id, info }) => (
                 <div className="carte" key={id}>
-                  <Vignette url={info.image} taille={56} alt={info.titre} />
+                  <Vignette url={info.image} taille={56} alt={info.titre} onClick={info.image ? () => setGrande(info.image) : undefined} />
                   <div className="corps">
                     <div className="titre" style={{ fontSize: 14 }}>{info.titre}</div>
                     <div className="details">

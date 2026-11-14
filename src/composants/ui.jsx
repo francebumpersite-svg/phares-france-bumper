@@ -122,7 +122,11 @@ export function PhotoGrande({ chemin, url, chemins, depart = 0, onFermer }) {
   const geste = useRef({ dist: 0, zoomDepart: 1, x: null, dernierTap: 0 });
   const zoomRef = useRef(1);
   zoomRef.current = zoom;
-  const src = (c) => (c && /^https?:|^blob:/.test(c) ? c : srcPhoto(c));
+  const src = (c) => {
+    if (!c) return null;
+    if (/cdn\.shopify\.com/.test(c)) return c.replace(/([?&])width=\d+/, '$1width=1400');
+    return /^https?:|^blob:/.test(c) ? c : srcPhoto(c);
+  };
   const aller = (d) => {
     setZoom(1);
     setI((x) => (x + d + liste.length) % liste.length);

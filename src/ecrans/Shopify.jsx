@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useDonnees } from '../lib/donnees.jsx';
 import { appelFonction } from '../lib/supabase.js';
 import { dateHeure, devinerDepuisTitre, euro, normaliser } from '../lib/outils.js';
-import { Icone, Vide, Vignette } from '../composants/ui.jsx';
+import { Icone, PhotoGrande, Vide, Vignette } from '../composants/ui.jsx';
 import FichePhare, { PastillesVentes, infosShopify } from './FichePhare.jsx';
 
 function useProduits() {
@@ -52,6 +52,7 @@ function ListeProduits({ produits, vide }) {
   const admin = d.profil?.role === 'admin';
   const [q, setQ] = useState('');
   const [fiche, setFiche] = useState(null);
+  const [grande, setGrande] = useState(null);
   const [limite, setLimite] = useState(60);
   const enListe = useMemo(() => {
     const m = {};
@@ -76,7 +77,7 @@ function ListeProduits({ produits, vide }) {
         <div className="liste">
           {filtres.slice(0, limite).map((p) => (
             <div className="carte" key={p.id}>
-              <Vignette url={p.image} taille={56} alt={p.titre} />
+              <Vignette url={p.image} taille={56} alt={p.titre} onClick={p.image ? () => setGrande(p.image) : undefined} />
               <div className="corps">
                 <div className="titre" style={{ fontSize: 14 }}>{p.titre}</div>
                 <div className="details">
@@ -108,6 +109,7 @@ function ListeProduits({ produits, vide }) {
         {!filtres.length && <Vide titre={vide} texte={!d.shopify.length ? 'Aucun phare Shopify synchronisé pour l’instant.' : ''} />}
       </main>
       {fiche && <FichePhare initial={fiche} onFermer={() => setFiche(null)} />}
+      {grande && <PhotoGrande url={grande} onFermer={() => setGrande(null)} />}
     </>
   );
 }
