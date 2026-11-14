@@ -200,3 +200,4 @@ button.carte { cursor: pointer; }
 .avec-x .retirer { position: absolute; top: -6px; right: -6px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: var(--noir); color: #fff; font-size: 16px; line-height: 1; }
 .vignette.pdf { width: 76px; height: 76px; font-weight: 700; color: var(--rouge-fonce); }
 .lien-pdf { display: block; padding: 10px 0; font-weight: 600; color: var(--noir); }
+.qr-bloc { grid-template-columns: auto 1fr; align-items: center; }

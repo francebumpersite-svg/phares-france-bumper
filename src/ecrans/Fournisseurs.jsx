@@ -2,7 +2,7 @@
 // Visible seulement par les comptes qui ont l'accès (le patron et ceux à qui il le donne).
 import { useMemo, useRef, useState } from 'react';
 import { srcPhoto, useDonnees } from '../lib/donnees.jsx';
-import { dateCourte, normaliser } from '../lib/outils.js';
+import { dateCourte, lireQr, normaliser } from '../lib/outils.js';
 import { Champ, Feuille, Icone, PhotoGrande, Vide, Vignette } from '../composants/ui.jsx';
 
 export const CATEGORIES = ['Pare-choc adaptable', 'Phare adaptable', 'Matériel garage', 'Robot', 'Accessoires'];
@@ -212,18 +212,35 @@ function VoirFournisseur({ f, onFermer, onModifier }) {
             <Icone.whatsapp /> WhatsApp
           </a>
         )}
-        {f.wechat && (
+        {f.wechat_qr ? (
+          <button type="button" className="btn btn-wechat" onClick={() => setGrande({ liste: [f.wechat_qr], i: 0 })}>
+            QR WeChat
+          </button>
+        ) : f.wechat ? (
           <button type="button" className="btn btn-wechat" onClick={ouvrirWechat}>
             {copie ? 'ID copié ✓' : 'WeChat'}
           </button>
-        )}
+        ) : null}
         {(f.adresse || f.ville || f.lat != null) && (
           <a className="btn" href={lienCarte(f)} target="_blank" rel="noreferrer">
             Itinéraire
           </a>
         )}
       </div>
-      {f.wechat && <div className="aide">WeChat : l'identifiant est copié, colle-le dans « Ajouter un contact ».</div>}
+      {f.wechat_qr && (
+        <div className="bloc qr-bloc">
+          <Vignette chemin={f.wechat_qr} taille={96} onClick={() => setGrande({ liste: [f.wechat_qr], i: 0 })} alt="QR code WeChat" />
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div className="aide" style={{ margin: 0 }}>
+              Pour l'ajouter : enregistre le QR dans tes photos, puis dans WeChat › Scanner › icône photo, choisis-le. Ou affiche-le en grand et scanne-le avec un autre téléphone.
+            </div>
+            <button type="button" className="petit-bouton neutre" onClick={() => enregistrerQr(f)}>
+              Enregistrer dans Photos
+            </button>
+          </div>
+        </div>
+      )}
+      {!f.wechat_qr && f.wechat && <div className="aide">WeChat : l'identifiant est copié, colle-le dans « Ajouter un contact ».</div>}
 
       <div className="bloc">
         {f.note ? <Etoiles valeur={f.note} /> : null}
@@ -246,9 +263,22 @@ function VoirFournisseur({ f, onFermer, onModifier }) {
         )}
       </div>
 
-      {(images.length > 0 || pdfs.length > 0) && (
+      {(images.length > 0 || pdfs.length > 0 || f.catalogue_qr || f.catalogue_lien) && (
         <div className="bloc">
           <h4>Catalogue</h4>
+          {f.catalogue_lien && (
+            <a className="btn btn-noir btn-plein" href={lienValide(f.catalogue_lien)} target="_blank" rel="noreferrer">
+              Ouvrir le catalogue en ligne
+            </a>
+          )}
+          {f.catalogue_qr && (
+            <div className="qr-bloc" style={{ display: 'grid', gap: 10 }}>
+              <Vignette chemin={f.catalogue_qr} taille={96} onClick={() => setGrande({ liste: [f.catalogue_qr], i: 0 })} alt="QR code du catalogue" />
+              <div className="aide" style={{ margin: 0 }}>
+                {f.catalogue_lien ? 'QR code du catalogue (le lien a été lu automatiquement).' : 'QR code du catalogue : appuie dessus pour l’afficher en grand et le scanner.'}
+              </div>
+            </div>
+          )}
           {images.length > 0 && (
             <div className="galerie-mini" style={{ flexWrap: 'wrap' }}>
               {images.map((x, i) => (
@@ -269,6 +299,24 @@ function VoirFournisseur({ f, onFermer, onModifier }) {
   );
 }
 
+const lienValide = (t) => (/^https?:\/\//i.test(t) ? t : `https://${t}`);
+
+// Partage du QR WeChat vers « Enregistrer l'image » (iPhone) ; sinon ouverture de l'image
+async function enregistrerQr(f) {
+  const url = srcPhoto(f.wechat_qr);
+  try {
+    const blob = await (await fetch(url)).blob();
+    const fichier = new File([blob], `wechat-${(f.nom || 'fournisseur').replace(/[^\w-]+/g, '-')}.jpg`, { type: blob.type || 'image/jpeg' });
+    if (navigator.canShare?.({ files: [fichier] })) {
+      await navigator.share({ files: [fichier], title: `QR WeChat ${f.nom}` });
+      return;
+    }
+  } catch (e) {
+    if (e?.name === 'AbortError') return;
+  }
+  window.open(url, '_blank');
+}
+
 function Info({ l, v }) {
   return (
     <div>
@@ -278,7 +326,7 @@ function Info({ l, v }) {
   );
 }
 
-function AjoutFichiers({ libelle, accept, onFichiers, grand }) {
+function AjoutFichiers({ libelle, accept, onFichiers, grand, unSeul }) {
   const { preparerFichier } = useDonnees();
   const ref = useRef(null);
   const [occupe, setOccupe] = useState(false);
@@ -292,7 +340,7 @@ function AjoutFichiers({ libelle, accept, onFichiers, grand }) {
         ref={ref}
         type="file"
         accept={accept}
-        multiple
+        multiple={!unSeul}
         hidden
         onChange={async (e) => {
           const fichiers = [...(e.target.files || [])];
@@ -301,7 +349,7 @@ function AjoutFichiers({ libelle, accept, onFichiers, grand }) {
           setOccupe(true);
           try {
             const res = [];
-            for (const fi of fichiers) res.push(await preparerFichier(fi));
+            for (const fi of fichiers) res.push({ ...(await preparerFichier(fi)), original: fi });
             onFichiers(res);
           } finally {
             setOccupe(false);
@@ -320,6 +368,7 @@ function ModifierFournisseur({ f, toutesCats, salons, onFermer, onSupprime, peut
     contact_nom: '',
     whatsapp: '',
     wechat: '',
+    wechat_qr: null,
     adresse: '',
     ville: '',
     lat: null,
@@ -328,12 +377,15 @@ function ModifierFournisseur({ f, toutesCats, salons, onFermer, onSupprime, peut
     note: null,
     photos: [],
     catalogue: [],
+    catalogue_qr: null,
+    catalogue_lien: '',
     ...f
   }));
   const [ops, setOps] = useState([]);
   const [erreur, setErreur] = useState('');
   const [autreCat, setAutreCat] = useState('');
   const [gps, setGps] = useState('');
+  const [qrMsg, setQrMsg] = useState('');
   const maj = (k) => (e) => setX((y) => ({ ...y, [k]: e.target.value }));
   const cats = [...new Set([...toutesCats, ...x.categories])];
 
@@ -358,6 +410,7 @@ function ModifierFournisseur({ f, toutesCats, salons, onFermer, onSupprime, peut
       ...x,
       nom: x.nom.trim(),
       salon: x.salon.trim() || null,
+      catalogue_lien: (x.catalogue_lien || '').trim() || null,
       note: x.note || null
     };
     garderSalon(ligne.salon);
@@ -461,10 +514,30 @@ function ModifierFournisseur({ f, toutesCats, salons, onFermer, onSupprime, peut
         <Champ label="WhatsApp">
           <input value={x.whatsapp || ''} onChange={maj('whatsapp')} inputMode="tel" placeholder="+86 138…" />
         </Champ>
-        <Champ label="WeChat (ID)">
+        <Champ label="WeChat (ID, si tu l'as)">
           <input value={x.wechat || ''} onChange={maj('wechat')} autoCapitalize="off" autoCorrect="off" />
         </Champ>
       </div>
+      <div className="lab">QR code WeChat</div>
+      {x.wechat_qr ? (
+        <div className="avec-x" style={{ justifySelf: 'start' }}>
+          <Vignette chemin={x.wechat_qr} taille={110} alt="QR code WeChat" />
+          <button type="button" className="retirer" aria-label="Retirer le QR code" onClick={() => setX((y) => ({ ...y, wechat_qr: null }))}>
+            ×
+          </button>
+        </div>
+      ) : (
+        <AjoutFichiers
+          accept="image/*"
+          unSeul
+          libelle="Photo ou capture du QR WeChat"
+          onFichiers={(res) => {
+            setX((y) => ({ ...y, wechat_qr: res[0].chemin }));
+            setOps((o) => [...o, res[0].op]);
+          }}
+        />
+      )}
+      <div className="aide" style={{ marginTop: -4 }}>Prends en photo le QR affiché sur son téléphone (ou fais une capture d'écran).</div>
       <Champ label="Adresse">
         <textarea value={x.adresse || ''} onChange={maj('adresse')} rows={2} />
       </Champ>
@@ -493,7 +566,38 @@ function ModifierFournisseur({ f, toutesCats, salons, onFermer, onSupprime, peut
       <div className="lab">Note</div>
       <Etoiles valeur={x.note} onChange={(n) => setX((y) => ({ ...y, note: n }))} />
 
-      <div className="lab">Catalogue (photos ou PDF)</div>
+      <div className="lab">Catalogue</div>
+      {x.catalogue_qr ? (
+        <div className="avec-x" style={{ justifySelf: 'start' }}>
+          <Vignette chemin={x.catalogue_qr} taille={110} alt="QR code du catalogue" />
+          <button type="button" className="retirer" aria-label="Retirer le QR code du catalogue" onClick={() => setX((y) => ({ ...y, catalogue_qr: null }))}>
+            ×
+          </button>
+        </div>
+      ) : (
+        <AjoutFichiers
+          accept="image/*"
+          unSeul
+          libelle="Photo du QR code du catalogue"
+          onFichiers={async (res) => {
+            setX((y) => ({ ...y, catalogue_qr: res[0].chemin }));
+            setOps((o) => [...o, res[0].op]);
+            setQrMsg('Lecture du QR code…');
+            const lu = await lireQr(res[0].original);
+            if (lu) {
+              setX((y) => ({ ...y, catalogue_lien: y.catalogue_lien || lu }));
+              setQrMsg('Lien du catalogue trouvé ✓');
+            } else {
+              setQrMsg('Je n’arrive pas à lire ce QR code : la photo est gardée, tu pourras le scanner plus tard.');
+            }
+          }}
+        />
+      )}
+      {qrMsg && <div className="aide">{qrMsg}</div>}
+      <Champ label="Lien du catalogue">
+        <input value={x.catalogue_lien || ''} onChange={maj('catalogue_lien')} inputMode="url" autoCapitalize="off" autoCorrect="off" placeholder="Rempli tout seul si le QR est lu" />
+      </Champ>
+      <div className="lab">Pages ou PDF du catalogue</div>
       {x.catalogue.length > 0 && (
         <div className="galerie-mini" style={{ flexWrap: 'wrap' }}>
           {x.catalogue.map((c) => (

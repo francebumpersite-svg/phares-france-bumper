@@ -114,3 +114,34 @@ export const normaliser = (s) =>
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '');
+
+// Lit le QR code d'une photo (renvoie le texte du QR, ou null)
+export async function lireQr(fichier) {
+  const { default: jsQR } = await import('jsqr');
+  const url = URL.createObjectURL(fichier);
+  try {
+    const img = await new Promise((ok, ko) => {
+      const i = new Image();
+      i.onload = () => ok(i);
+      i.onerror = ko;
+      i.src = url;
+    });
+    for (const max of [1200, 800, 1800]) {
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * k);
+      const h = Math.round(img.naturalHeight * k);
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0, w, h);
+      const r = jsQR(ctx.getImageData(0, 0, w, h).data, w, h);
+      if (r?.data) return r.data.trim();
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}

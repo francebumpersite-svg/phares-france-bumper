@@ -432,7 +432,7 @@ async function prechargerPhotos(r) {
   for (const p of r.phares) for (const c of [...(p.photos || []), ...(p.photos_fiche || [])]) urls.push(urlPhoto(c));
   for (const x of [...r.ventes, ...r.dropship, ...r.retours, ...r.chine]) if (x.photo) urls.push(urlPhoto(x.photo));
   for (const s of r.shopify) if (s.image) urls.push(s.image);
-  for (const f of r.fournisseurs || []) for (const c of [...(f.photos || []), ...(f.catalogue || []).map((x) => x.chemin)]) urls.push(urlPhoto(c));
+  for (const f of r.fournisseurs || []) for (const c of [...(f.photos || []), ...(f.wechat_qr ? [f.wechat_qr] : []), ...(f.catalogue_qr ? [f.catalogue_qr] : []), ...(f.catalogue || []).map((x) => x.chemin)]) urls.push(urlPhoto(c));
   const aFaire = urls.filter((u) => u && !dejaPrecharge.has(u));
   for (const u of aFaire) {
     if (!navigator.onLine) return;
