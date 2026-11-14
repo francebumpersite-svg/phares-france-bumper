@@ -78,10 +78,10 @@ const Q_PEINTURE = `query($q: String, $after: String) {
   orders(first: 100, query: $q, after: $after, sortKey: CREATED_AT) {
     pageInfo { hasNextPage endCursor }
     nodes {
-      id name createdAt cancelledAt
+      id name createdAt cancelledAt displayFulfillmentStatus
       lineItems(first: 50) {
         nodes {
-          id title quantity
+          id title quantity unfulfilledQuantity
           customAttributes { key value }
           image { url(transform: { maxWidth: 600 }) }
           product { handle }
@@ -191,6 +191,7 @@ Deno.serve(async (req) => {
     let nbPeintures = 0;
     try {
       const aPeindre: Record<string, unknown>[] = [];
+      const dejaExpedies: Record<string, unknown>[] = [];
       let curseur: string | null = null;
       do {
         const d = await gql(Q_PEINTURE, { q: `created_at:>=${depuis}`, after: curseur });
@@ -202,7 +203,10 @@ Deno.serve(async (req) => {
             const immat = attr(opt, /immatric|plaque/);
             const autres = lignesCmd.filter((x: { title: string }) => !estOptionPeinture(x.title) && !/emballage|carton/i.test(x.title));
             const pc = autres.find((x: { title: string }) => piece && norm(x.title) === norm(piece)) ?? autres.find((x: { title: string }) => /pare.?choc/i.test(x.title)) ?? autres[0];
-            aPeindre.push({
+            // Déjà expédié sur Shopify (commande traitée, ou pare-choc parti) → plus « à peindre »
+            const expedie = o.displayFulfillmentStatus === "FULFILLED" || (pc && pc.unfulfilledQuantity === 0);
+            (expedie ? dejaExpedies : aPeindre).push({
+              ...(expedie ? { statut: "expedie" } : {}),
               line_key: `${idCourt(o.id)}-${idCourt(opt.id)}`,
               source: "shopify",
               commande: o.name,
@@ -220,9 +224,12 @@ Deno.serve(async (req) => {
         curseur = d.orders.pageInfo.hasNextPage ? d.orders.pageInfo.endCursor : null;
       } while (curseur);
       nbPeintures = aPeindre.length;
-      for (let i = 0; i < aPeindre.length; i += 500) {
-        const { error } = await sb.from("peintures").upsert(aPeindre.slice(i, i + 500), { onConflict: "line_key" });
-        if (error) throw new Error(error.message);
+      // Deux envois séparés : on ne remet jamais « à peindre » un pare-choc marqué expédié dans l'appli
+      for (const groupe of [aPeindre, dejaExpedies]) {
+        for (let i = 0; i < groupe.length; i += 500) {
+          const { error } = await sb.from("peintures").upsert(groupe.slice(i, i + 500), { onConflict: "line_key" });
+          if (error) throw new Error(error.message);
+        }
       }
     } catch (e) {
       peinturesIndispo = true;
