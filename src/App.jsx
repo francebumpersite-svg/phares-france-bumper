@@ -7,6 +7,7 @@ import Connexion from './ecrans/Connexion.jsx';
 import ACommander from './ecrans/ACommander.jsx';
 import Base from './ecrans/Base.jsx';
 import Fournisseurs from './ecrans/Fournisseurs.jsx';
+import Peinture from './ecrans/Peinture.jsx';
 import { Ruptures, MeilleuresVentes } from './ecrans/Shopify.jsx';
 import Dropshipping, { VueChine } from './ecrans/Dropshipping.jsx';
 import Retours from './ecrans/Retours.jsx';
@@ -48,7 +49,8 @@ const ONGLETS = [
   { id: 'ruptures', label: 'Ruptures' },
   { id: 'meilleures_ventes', label: 'Meilleures ventes' },
   { id: 'non_compatibles', label: 'Non compatibles' },
-  { id: 'retours', label: 'Retours client' }
+  { id: 'retours', label: 'Retours client' },
+  { id: 'peinture', label: 'Peinture' }
 ];
 
 function Coque() {
@@ -91,9 +93,10 @@ function Coque() {
       chine: d.chine.filter((x) => ['a_commander', 'commande'].includes(x.statut)).length,
       ruptures: new Set(d.shopify.filter((s) => (s.stock ?? 0) <= 0).map((s) => s.product_id)).size,
       non_compatibles: d.phares.filter((p) => p.non_compatible).length,
-      retours: d.retours.filter((r) => r.statut === 'ouvert').length
+      retours: d.retours.filter((r) => r.statut === 'ouvert').length,
+      peinture: d.peintures.filter((p) => p.statut === 'a_peindre').reduce((n, p) => n + (p.quantite || 1), 0)
     }),
-    [d.phares, d.ventes, d.dropship, d.shopify, d.retours, d.chine, role]
+    [d.phares, d.ventes, d.dropship, d.shopify, d.retours, d.chine, d.peintures, role]
   );
 
   // L'admin déclenche une synchro Shopify si la dernière date de plus de 2 h
@@ -181,6 +184,7 @@ function Coque() {
 
       {actif === 'chine' && <VueChine />}
       {actif === 'fournisseurs' && <Fournisseurs />}
+      {actif === 'peinture' && <Peinture />}
       {actif === 'vente' && <VenteVendeur />}
       {actif === 'a_commander' && <ACommander />}
       {actif === 'dropshipping' && <Dropshipping />}

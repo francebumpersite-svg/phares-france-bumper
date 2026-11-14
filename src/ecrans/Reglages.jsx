@@ -12,7 +12,8 @@ const ONGLETS = [
   ['ruptures', 'Ruptures'],
   ['meilleures_ventes', 'Meilleures ventes'],
   ['non_compatibles', 'Non compatibles'],
-  ['retours', 'Retours client']
+  ['retours', 'Retours client'],
+  ['peinture', 'Peinture']
 ];
 const CHAMPS = [
   ['prix_vente', 'Prix de vente'],

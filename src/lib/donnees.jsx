@@ -22,7 +22,8 @@ const VIDE = {
   shopify: [],
   comptoir: {},
   equipe: [],
-  fournisseurs: []
+  fournisseurs: [],
+  peintures: []
 };
 
 const CLE_CACHE = 'donnees-v1';
@@ -112,7 +113,8 @@ export function DonneesProvider({ session, children }) {
           supabase.from('dropship').select('*').order('created_at', { ascending: false }).limit(2000),
           supabase.from('retours').select('*').order('created_at', { ascending: false }).limit(2000),
           supabase.from('shopify_produits').select('*').limit(20000),
-          supabase.rpc('comptoir_par_produit')
+          supabase.rpc('comptoir_par_produit'),
+          supabase.from('peintures').select('*').eq('annulee', false).order('date_commande', { ascending: false }).limit(3000)
         ]);
         const err = q.find((x) => x.error);
         if (err) throw err.error;
@@ -123,6 +125,7 @@ export function DonneesProvider({ session, children }) {
         r.retours = q[4].data;
         r.shopify = q[5].data;
         r.comptoir = Object.fromEntries((q[6].data || []).map((c) => [c.shopify_product_id, Number(c.nb)]));
+        r.peintures = q[7].data || [];
       }
       if (role === 'admin') {
         const { data } = await supabase.from('profils').select('id, nom, identifiant, role, actif').order('created_at');
@@ -393,6 +396,24 @@ export function DonneesProvider({ session, children }) {
         }
       },
 
+      async ajouterPeinture(p, opsPhotos = []) {
+        const maintenant = new Date().toISOString();
+        const ligne = { ...p, id: uid(), source: 'comptoir', statut: 'a_peindre', created_at: maintenant, updated_at: maintenant, cree_par: userId };
+        modifierLocal((x) => ({ ...x, peintures: listeMaj(x.peintures, ligne) }));
+        await ajouterOps([...opsPhotos, { k: 'insert', table: 'peintures', ligne }]);
+      },
+
+      async majPeinture(id, champs, opsPhotos = []) {
+        const c = { ...champs, updated_at: new Date().toISOString() };
+        modifierLocal((x) => ({ ...x, peintures: x.peintures.map((p) => (p.id === id ? { ...p, ...c } : p)) }));
+        await ajouterOps([...opsPhotos, { k: 'update', table: 'peintures', id, champs: c }]);
+      },
+
+      async supprimerPeinture(id) {
+        modifierLocal((x) => ({ ...x, peintures: x.peintures.filter((p) => p.id !== id) }));
+        await ajouterOps([{ k: 'delete', table: 'peintures', id }]);
+      },
+
       async enregistrerReglages(champs) {
         modifierLocal((x) => ({ ...x, reglages: { ...x.reglages, ...champs } }));
         await ajouterOps([{ k: 'update', table: 'reglages', id: 1, champs: { ...champs, updated_at: new Date().toISOString() } }]);
@@ -430,7 +451,8 @@ let dejaPrecharge = new Set();
 async function prechargerPhotos(r) {
   const urls = [];
   for (const p of r.phares) for (const c of [...(p.photos || []), ...(p.photos_fiche || [])]) urls.push(urlPhoto(c));
-  for (const x of [...r.ventes, ...r.dropship, ...r.retours, ...r.chine]) if (x.photo) urls.push(urlPhoto(x.photo));
+  for (const x of [...r.ventes, ...r.dropship, ...r.retours, ...r.chine, ...(r.peintures || [])]) if (x.photo) urls.push(urlPhoto(x.photo));
+  for (const x of r.peintures || []) if (x.image) urls.push(x.image);
   for (const s of r.shopify) if (s.image) urls.push(s.image);
   for (const f of r.fournisseurs || []) for (const c of [...(f.photos || []), ...(f.wechat_qr ? [f.wechat_qr] : []), ...(f.catalogue_qr ? [f.catalogue_qr] : []), ...(f.catalogue || []).map((x) => x.chemin)]) urls.push(urlPhoto(c));
   const aFaire = urls.filter((u) => u && !dejaPrecharge.has(u));

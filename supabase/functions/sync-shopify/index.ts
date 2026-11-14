@@ -73,6 +73,28 @@ const qCommandes = (avecPays: boolean) => `query($q: String, $after: String) {
 
 const idCourt = (gid: string) => gid.split("/").pop() ?? gid;
 
+// Commandes avec l'option peinture (lecture seule)
+const Q_PEINTURE = `query($q: String, $after: String) {
+  orders(first: 100, query: $q, after: $after, sortKey: CREATED_AT) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id name createdAt cancelledAt
+      lineItems(first: 50) {
+        nodes {
+          id title quantity
+          customAttributes { key value }
+          image { url(transform: { maxWidth: 600 }) }
+          product { handle }
+        }
+      }
+    }
+  }
+}`;
+const estOptionPeinture = (t: string) => /option\s+peinture/i.test(t || "");
+const norm = (t: string) => (t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+const attr = (li: { customAttributes: { key: string; value: string }[] }, re: RegExp) =>
+  li.customAttributes?.find((a) => re.test(norm(a.key)))?.value?.trim() || null;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
@@ -164,6 +186,49 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 2 bis) Pare-chocs à peindre (option peinture) — n'efface jamais le statut ni le code peinture
+    let peinturesIndispo = false;
+    let nbPeintures = 0;
+    try {
+      const aPeindre: Record<string, unknown>[] = [];
+      let curseur: string | null = null;
+      do {
+        const d = await gql(Q_PEINTURE, { q: `created_at:>=${depuis}`, after: curseur });
+        for (const o of d.orders.nodes) {
+          const lignesCmd = o.lineItems.nodes;
+          for (const opt of lignesCmd) {
+            if (!estOptionPeinture(opt.title)) continue;
+            const piece = attr(opt, /piece|pare.?choc/);
+            const immat = attr(opt, /immatric|plaque/);
+            const autres = lignesCmd.filter((x: { title: string }) => !estOptionPeinture(x.title) && !/emballage|carton/i.test(x.title));
+            const pc = autres.find((x: { title: string }) => piece && norm(x.title) === norm(piece)) ?? autres.find((x: { title: string }) => /pare.?choc/i.test(x.title)) ?? autres[0];
+            aPeindre.push({
+              line_key: `${idCourt(o.id)}-${idCourt(opt.id)}`,
+              source: "shopify",
+              commande: o.name,
+              date_commande: o.createdAt,
+              piece: piece ?? pc?.title ?? null,
+              immat: immat ? immat.toUpperCase() : null,
+              quantite: opt.quantity ?? 1,
+              image: pc?.image?.url ?? null,
+              lien: pc?.product?.handle ? `https://france-bumper.com/products/${pc.product.handle}` : null,
+              annulee: !!o.cancelledAt,
+              updated_at: debut,
+            });
+          }
+        }
+        curseur = d.orders.pageInfo.hasNextPage ? d.orders.pageInfo.endCursor : null;
+      } while (curseur);
+      nbPeintures = aPeindre.length;
+      for (let i = 0; i < aPeindre.length; i += 500) {
+        const { error } = await sb.from("peintures").upsert(aPeindre.slice(i, i + 500), { onConflict: "line_key" });
+        if (error) throw new Error(error.message);
+      }
+    } catch (e) {
+      peinturesIndispo = true;
+      console.error("peinture", e);
+    }
+
     // 3) Enregistrement
     const tout = [...lignes.values()];
     for (let i = 0; i < tout.length; i += 500) {
@@ -176,9 +241,11 @@ Deno.serve(async (req) => {
       ? "Stock à jour, mais Shopify refuse l'accès aux commandes (droit read_orders à ajouter)."
       : paysIndispo
       ? "Synchro faite, mais Shopify ne donne pas les pays (accès aux données client à activer)."
+      : peinturesIndispo
+      ? "Stock à jour, mais les commandes avec peinture n'ont pas pu être lues."
       : "Synchro faite";
     await sb.from("synchro").update({ derniere: new Date().toISOString(), ok: true, message, nb_produits: tout.length }).eq("id", 1);
-    return json({ ok: true, produits: tout.length, message });
+    return json({ ok: true, produits: tout.length, peintures: nbPeintures, message });
   } catch (e) {
     const message = String((e as Error).message ?? e).slice(0, 500);
     await sb.from("synchro").update({ derniere: new Date().toISOString(), ok: false, message }).eq("id", 1);
