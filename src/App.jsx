@@ -60,6 +60,13 @@ function Coque() {
   const onglets = useMemo(() => {
     if (role === 'admin') return [...ONGLETS.filter((o) => o.id !== 'vente'), { id: 'reglages', label: 'Réglages' }];
     if (role === 'lecteur') return ONGLETS.filter((o) => o.id !== 'vente');
+    if (role === 'chine')
+      return [
+        { id: 'chine', label: 'Dropshipping' },
+        { id: 'base', label: 'Base Chine' },
+        { id: 'non_compatibles', label: 'Non compatibles' },
+        { id: 'retours', label: 'Retours client' }
+      ];
     if (role === 'vendeur') {
       const ok = reglages?.onglets_vendeur || {};
       return ONGLETS.filter((o) => o.id === 'vente' || ok[o.id]);
@@ -71,11 +78,12 @@ function Coque() {
     () => ({
       a_commander: d.phares.filter((p) => p.statut === 'a_commander').length + (role === 'admin' || role === 'lecteur' ? d.ventes.filter((v) => v.statut === 'en_attente').length : 0),
       dropshipping: d.dropship.filter((x) => ['a_commander', 'commande', 'expedie'].includes(x.statut)).length,
+      chine: d.chine.filter((x) => ['a_commander', 'commande'].includes(x.statut)).length,
       ruptures: new Set(d.shopify.filter((s) => (s.stock ?? 0) <= 0).map((s) => s.product_id)).size,
       non_compatibles: d.phares.filter((p) => p.non_compatible).length,
       retours: d.retours.filter((r) => r.statut === 'ouvert').length
     }),
-    [d.phares, d.ventes, d.dropship, d.shopify, d.retours, role]
+    [d.phares, d.ventes, d.dropship, d.shopify, d.retours, d.chine, role]
   );
 
   // L'admin déclenche une synchro Shopify si la dernière date de plus de 2 h
@@ -137,7 +145,7 @@ function Coque() {
         </div>
       </header>
 
-      {role !== 'chine' && (
+      {(
         <div className="collant">
           <nav className="onglets" role="tablist" aria-label="Onglets">
             {onglets.map((o) => (
@@ -161,7 +169,7 @@ function Coque() {
         </div>
       )}
 
-      {role === 'chine' && <VueChine />}
+      {actif === 'chine' && <VueChine />}
       {actif === 'vente' && <VenteVendeur />}
       {actif === 'a_commander' && <ACommander />}
       {actif === 'dropshipping' && <Dropshipping />}

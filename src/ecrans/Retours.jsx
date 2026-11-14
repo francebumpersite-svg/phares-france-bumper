@@ -48,7 +48,7 @@ export default function Retours() {
         </div>
         {!liste.length && <Vide titre="Aucun retour" texte="" />}
       </main>
-      {d.profil?.role !== 'lecteur' && (
+      {!['lecteur', 'chine'].includes(d.profil?.role) && (
         <div className="barre">
           <div className="barre-in">
             <button type="button" className="btn btn-rouge" onClick={() => setFiche({})}>

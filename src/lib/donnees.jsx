@@ -128,9 +128,18 @@ export function DonneesProvider({ session, children }) {
         r.equipe = data || [];
       }
       if (role === 'chine') {
-        const { data, error } = await supabase.rpc('dropship_chine');
-        if (error) throw error;
-        r.chine = data;
+        const [c1, c2, c3, c4] = await Promise.all([
+          supabase.rpc('dropship_chine'),
+          supabase.from('phares').select('*').order('marque').limit(10000),
+          supabase.rpc('phares_prive_visible'),
+          supabase.rpc('retours_chine')
+        ]);
+        const err = [c1, c2, c3, c4].find((x) => x.error);
+        if (err) throw err.error;
+        r.chine = c1.data;
+        r.phares = c2.data;
+        r.prive = Object.fromEntries((c3.data || []).map((p) => [p.phare_id, p]));
+        r.retours = c4.data || [];
       }
       setD(r);
       await set(`${CLE_CACHE}:${userId}`, r);
