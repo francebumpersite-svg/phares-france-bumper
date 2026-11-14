@@ -3,6 +3,7 @@ import { useDonnees } from '../lib/donnees.jsx';
 import { appelFonction } from '../lib/supabase.js';
 import { Champ, Feuille, Interrupteur, Segments } from '../composants/ui.jsx';
 import { BandeauSynchro } from './Shopify.jsx';
+import ImportAncienne from './ImportAncienne.jsx';
 
 const ONGLETS = [
   ['a_commander', 'À commander'],
@@ -70,6 +71,9 @@ export default function Reglages() {
           </div>
         </Champ>
       </div>
+
+      <h2 className="groupe">Importer</h2>
+      <ImportAncienne />
 
       <h2 className="groupe">
         Comptes
