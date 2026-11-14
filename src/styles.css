@@ -180,7 +180,7 @@ button.carte { cursor: pointer; }
 .vis-zone { flex: 1; min-height: 0; overflow: auto; display: flex; align-items: center; justify-content: center; touch-action: pan-x pan-y pinch-zoom; -webkit-overflow-scrolling: touch; }
 .vis-zone img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; margin: auto; }
 .vis-nav { display: flex; justify-content: space-between; padding: 10px 16px; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
-.galerie-grande { width: 100%; aspect-ratio: 4 / 3; border-radius: 12px; background: var(--fond); border: 1px solid var(--ligne); overflow: hidden; padding: 0; display: block; }
+.galerie-grande { width: 100%; height: clamp(220px, 62vw, 460px); flex: none; border-radius: 12px; background: var(--fond); border: 1px solid var(--ligne); overflow: hidden; padding: 0; display: block; }
 .galerie-grande img { width: 100%; height: 100%; object-fit: contain; background: #fff; display: block; }
 .galerie-mini { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
 .galerie-mini .vignette.on { outline: 2px solid var(--rouge); outline-offset: 1px; }

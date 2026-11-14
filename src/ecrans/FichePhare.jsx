@@ -42,14 +42,22 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection }) {
   const prixVente = pv?.prix_vente ?? (info?.prix != null ? Number(info.prix) : null);
   const marge = pv?.marge != null ? pv.marge : pv?.prix_achat != null && prixVente != null ? prixVente - pv.prix_achat : null;
   const pctMarge = marge != null && prixVente ? Math.round((marge / prixVente) * 100) : null;
+  const [grande, setGrande] = useState(false);
+  const toutes = [...(phare.photos || []), ...(phare.photos_fiche || [])];
   return (
     <div className={sel ? 'carte sel' : 'carte'}>
+      {grande && <PhotoGrande chemins={toutes.length ? toutes : [info?.image]} onFermer={() => setGrande(false)} />}
       {onSelection && (
         <button type="button" className={sel ? 'case on' : 'case'} aria-pressed={!!sel} aria-label={`Sélectionner ${phare.marque} ${phare.modele || ''}`} onClick={() => onSelection(phare.id)}>
           {sel && <Icone.coche />}
         </button>
       )}
-      <Vignette chemin={phare.photos?.[0]} url={!phare.photos?.[0] ? info?.image : null} taille={64} onClick={() => onOuvrir(phare)} />
+      <Vignette
+        chemin={phare.photos?.[0] || phare.photos_fiche?.[0]}
+        url={!phare.photos?.[0] && !phare.photos_fiche?.[0] ? info?.image : null}
+        taille={64}
+        onClick={() => (toutes.length || info?.image ? setGrande(true) : onOuvrir(phare))}
+      />
       <div className="corps">
         <button type="button" className="ouvrir" onClick={() => onOuvrir(phare)}>
           <span className="titre">
