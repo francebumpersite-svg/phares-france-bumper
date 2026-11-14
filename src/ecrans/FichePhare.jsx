@@ -126,7 +126,8 @@ const VIDE = {
   note: '',
   photos: [],
   photos_fiche: [],
-  shopify_product_id: null
+  shopify_product_id: null,
+  chine: true
 };
 
 export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
@@ -456,6 +457,17 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
             <Segments petit valeur={p.non_compatible ? 'oui' : 'non'} onChange={(v) => setP((x) => ({ ...x, non_compatible: v === 'oui' }))} options={[['non', 'Non'], ['oui', 'Oui']]} />
           </Champ>
         </div>
+        <Champ label="Où ranger ce phare ?">
+          <Segments
+            petit
+            valeur={p.chine === false ? 'site' : 'chine'}
+            onChange={(v) => setP((x) => ({ ...x, chine: v === 'chine' }))}
+            options={[
+              ['chine', 'Base Chine (à acheter en Chine)'],
+              ['site', 'Phare du site']
+            ]}
+          />
+        </Champ>
         <Champ label="Note">
           <textarea value={p.note || ''} onChange={maj('note')} placeholder={p.non_compatible ? 'Pourquoi il n’est pas compatible…' : ''} />
         </Champ>

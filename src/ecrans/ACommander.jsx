@@ -91,7 +91,8 @@ export default function ACommander() {
                             ref_oe: v.ref || '',
                             photos: v.photo ? [v.photo] : [],
                             shopify_product_id: v.shopify_product_id || null,
-                            statut: 'a_commander'
+                            statut: 'a_commander',
+                            chine: false
                           },
                           venteId: v.id
                         })
@@ -128,7 +129,7 @@ export default function ACommander() {
                   {admin && <button
                     type="button"
                     className="petit-bouton"
-                    onClick={() => setFiche({ initial: { ...devinerDepuisTitre(info.titre), shopify_product_id: id, statut: 'a_commander' } })}
+                    onClick={() => setFiche({ initial: { ...devinerDepuisTitre(info.titre), shopify_product_id: id, statut: 'a_commander', chine: false } })}
                   >
                     + Ajouter
                   </button>}
@@ -171,7 +172,7 @@ export default function ACommander() {
                   <button type="button" className="btn btn-rouge" disabled={!choisis.length} onClick={() => setListe(true)}>
                     Commander
                   </button>
-                  <button type="button" className="btn" onClick={() => setFiche({ initial: { statut: 'a_commander' } })}>
+                  <button type="button" className="btn" onClick={() => setFiche({ initial: { statut: 'a_commander', chine: false } })}>
                     + Ajouter un phare
                   </button>
                 </div>

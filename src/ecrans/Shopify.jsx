@@ -94,7 +94,7 @@ function ListeProduits({ produits, vide }) {
                     {enListe[p.id] === 'commande' ? 'Commandé' : 'Dans la liste'}
                   </span>
                 ) : (
-                  <button type="button" className="petit-bouton" style={{ alignSelf: 'center' }} onClick={() => setFiche({ ...devinerDepuisTitre(p.titre), shopify_product_id: p.id, statut: 'a_commander' })}>
+                  <button type="button" className="petit-bouton" style={{ alignSelf: 'center' }} onClick={() => setFiche({ ...devinerDepuisTitre(p.titre), shopify_product_id: p.id, statut: 'a_commander', chine: false })}>
                     + À commander
                   </button>
                 ))}

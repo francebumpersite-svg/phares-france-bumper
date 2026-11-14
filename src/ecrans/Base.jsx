@@ -7,7 +7,8 @@ import FichePhare, { CartePhare } from './FichePhare.jsx';
 export default function Base({ mode }) {
   const d = useDonnees();
   const admin = d.profil?.role === 'admin';
-  const phares = useMemo(() => (mode === 'non_compatibles' ? d.phares.filter((p) => p.non_compatible) : d.phares), [d.phares, mode]);
+  // Base Chine = seulement les phares à acheter en Chine (pas les phares du site)
+  const phares = useMemo(() => (mode === 'non_compatibles' ? d.phares.filter((p) => p.non_compatible) : d.phares.filter((p) => p.chine !== false)), [d.phares, mode]);
   const filtre = useFiltres(phares);
   const [fiche, setFiche] = useState(null);
   const [coller, setColler] = useState(false);
