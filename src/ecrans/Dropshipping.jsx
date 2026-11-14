@@ -7,6 +7,7 @@ const COULEUR = { a_commander: 'p-orange', commande: 'p-bleu', expedie: 'p-bleu'
 
 export default function Dropshipping() {
   const d = useDonnees();
+  const lecture = d.profil?.role === 'lecteur';
   const [filtre, setFiltre] = useState('en_cours');
   const [q, setQ] = useState('');
   const [fiche, setFiche] = useState(null);
@@ -58,19 +59,21 @@ export default function Dropshipping() {
         </div>
         {!liste.length && <Vide titre="Aucune commande" texte={filtre === 'en_cours' ? 'Les commandes dropshipping en cours apparaîtront ici.' : ''} />}
       </main>
-      <div className="barre">
-        <div className="barre-in">
-          <button type="button" className="btn btn-rouge" onClick={() => setFiche({})}>
-            + Nouvelle commande client
-          </button>
+      {!lecture && (
+        <div className="barre">
+          <div className="barre-in">
+            <button type="button" className="btn btn-rouge" onClick={() => setFiche({})}>
+              + Nouvelle commande client
+            </button>
+          </div>
         </div>
-      </div>
-      {fiche && <FicheDropship drop={fiche} onFermer={() => setFiche(null)} />}
+      )}
+      {fiche && <FicheDropship drop={fiche} lecture={lecture} onFermer={() => setFiche(null)} />}
     </>
   );
 }
 
-function FicheDropship({ drop, onFermer }) {
+function FicheDropship({ drop, onFermer, lecture }) {
   const d = useDonnees();
   const nouveau = !drop.id;
   const [x, setX] = useState(() => ({
@@ -119,14 +122,17 @@ function FicheDropship({ drop, onFermer }) {
       titre={nouveau ? 'Nouvelle commande client' : 'Commande dropshipping'}
       onFermer={onFermer}
       pied={
-        <>
-          {erreur && <div className="bandeau erreur">{erreur}</div>}
-          <button type="button" className="btn btn-rouge btn-plein" onClick={enregistrer}>
-            {nouveau ? 'Envoyer à la Chine' : 'Enregistrer'}
-          </button>
-        </>
+        lecture ? null : (
+          <>
+            {erreur && <div className="bandeau erreur">{erreur}</div>}
+            <button type="button" className="btn btn-rouge btn-plein" onClick={enregistrer}>
+              {nouveau ? 'Envoyer à la Chine' : 'Enregistrer'}
+            </button>
+          </>
+        )
       }
     >
+      <fieldset disabled={lecture} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: 'grid', gap: 12 }}>
       <div className="bloc">
         <h4>Le phare</h4>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -207,6 +213,7 @@ function FicheDropship({ drop, onFermer }) {
       <Champ label="Note pour la Chine (facultatif)">
         <textarea value={x.note || ''} onChange={maj('note')} rows={2} />
       </Champ>
+      </fieldset>
       {grande && <PhotoGrande chemin={x.photo} onFermer={() => setGrande(false)} />}
     </Feuille>
   );

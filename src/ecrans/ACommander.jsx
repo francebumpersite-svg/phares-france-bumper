@@ -7,6 +7,7 @@ import FichePhare, { CartePhare, PastillesVentes, infosShopify } from './FichePh
 export default function ACommander() {
   const d = useDonnees();
   const admin = d.profil?.role === 'admin';
+  const voitTout = admin || d.profil?.role === 'lecteur';
   const [vue, setVue] = useState('a_commander');
   const phares = useMemo(() => d.phares.filter((p) => p.statut === vue), [d.phares, vue]);
   const filtre = useFiltres(phares);
@@ -16,11 +17,11 @@ export default function ACommander() {
   const [grande, setGrande] = useState(null);
 
   const nomEquipe = useMemo(() => Object.fromEntries(d.equipe.map((e) => [e.id, e.nom])), [d.equipe]);
-  const venteEnAttente = admin ? d.ventes.filter((v) => v.statut === 'en_attente') : [];
+  const venteEnAttente = voitTout ? d.ventes.filter((v) => v.statut === 'en_attente') : [];
 
   // Ruptures Shopify qui se vendent et qui ne sont pas déjà dans la liste
   const suggestions = useMemo(() => {
-    if (!admin || vue !== 'a_commander') return [];
+    if (!voitTout || vue !== 'a_commander') return [];
     const dejaPris = new Set(d.phares.filter((p) => ['a_commander', 'commande'].includes(p.statut)).map((p) => p.shopify_product_id).filter(Boolean));
     const ids = [...new Set(d.shopify.map((s) => s.product_id))];
     return ids
@@ -28,7 +29,7 @@ export default function ACommander() {
       .filter((x) => x.info && x.info.stock <= 0 && x.info.ventes + x.info.comptoir > 0 && !dejaPris.has(x.id))
       .sort((a, b) => b.info.ventes + b.info.comptoir - (a.info.ventes + a.info.comptoir))
       .slice(0, 30);
-  }, [admin, vue, d.phares, d.shopify, d.comptoir]);
+  }, [voitTout, vue, d.phares, d.shopify, d.comptoir]);
 
   const basculer = (id) =>
     setSelection((s) => {
@@ -41,7 +42,7 @@ export default function ACommander() {
 
   return (
     <>
-      {admin && (
+      {voitTout && (
         <div style={{ padding: '10px 16px 0' }}>
           <Segments
             valeur={vue}
@@ -76,7 +77,7 @@ export default function ACommander() {
                       </span>
                     </div>
                   </div>
-                  <div className="droite">
+                  {admin && <div className="droite">
                     <button
                       type="button"
                       className="petit-bouton"
@@ -101,7 +102,7 @@ export default function ACommander() {
                     <button type="button" className="petit-bouton neutre" onClick={() => d.majVente(v.id, { statut: 'ignore' })}>
                       Ignorer
                     </button>
-                  </div>
+                  </div>}
                 </div>
               ))}
             </div>
@@ -124,13 +125,13 @@ export default function ACommander() {
                       <PastillesVentes info={info} />
                     </div>
                   </div>
-                  <button
+                  {admin && <button
                     type="button"
                     className="petit-bouton"
                     onClick={() => setFiche({ initial: { ...devinerDepuisTitre(info.titre), shopify_product_id: id, statut: 'a_commander' } })}
                   >
                     + Ajouter
-                  </button>
+                  </button>}
                 </div>
               ))}
             </div>

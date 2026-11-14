@@ -59,6 +59,7 @@ function Coque() {
 
   const onglets = useMemo(() => {
     if (role === 'admin') return [...ONGLETS.filter((o) => o.id !== 'vente'), { id: 'reglages', label: 'Réglages' }];
+    if (role === 'lecteur') return ONGLETS.filter((o) => o.id !== 'vente');
     if (role === 'vendeur') {
       const ok = reglages?.onglets_vendeur || {};
       return ONGLETS.filter((o) => o.id === 'vente' || ok[o.id]);
@@ -68,7 +69,7 @@ function Coque() {
 
   const compte = useMemo(
     () => ({
-      a_commander: d.phares.filter((p) => p.statut === 'a_commander').length + (role === 'admin' ? d.ventes.filter((v) => v.statut === 'en_attente').length : 0),
+      a_commander: d.phares.filter((p) => p.statut === 'a_commander').length + (role === 'admin' || role === 'lecteur' ? d.ventes.filter((v) => v.statut === 'en_attente').length : 0),
       dropshipping: d.dropship.filter((x) => ['a_commander', 'commande', 'expedie'].includes(x.statut)).length,
       ruptures: new Set(d.shopify.filter((s) => (s.stock ?? 0) <= 0).map((s) => s.product_id)).size,
       non_compatibles: d.phares.filter((p) => p.non_compatible).length,
@@ -107,7 +108,7 @@ function Coque() {
     );
   }
 
-  const libRole = { admin: 'Administrateur', vendeur: profil.nom, chine: `${profil.nom} · Chine` }[role];
+  const libRole = { admin: 'Administrateur', vendeur: profil.nom, chine: `${profil.nom} · Chine`, lecteur: `${profil.nom} · Lecture seule` }[role];
 
   return (
     <div className="app">

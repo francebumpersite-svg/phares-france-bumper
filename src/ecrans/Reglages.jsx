@@ -19,7 +19,7 @@ const CHAMPS = [
   ['marge', 'Marge'],
   ['fournisseur', 'Fournisseur, lien et réf. fournisseur']
 ];
-const ROLES = { admin: 'Administrateur', vendeur: 'Vendeur', chine: 'Collègue Chine' };
+const ROLES = { admin: 'Administrateur', vendeur: 'Vendeur', chine: 'Collègue Chine', lecteur: 'Lecture seule' };
 
 export default function Reglages() {
   const d = useDonnees();
@@ -103,7 +103,7 @@ export default function Reglages() {
         ))}
       </div>
       <div className="aide" style={{ padding: '6px 2px' }}>
-        L'onglet « J'ai vendu un phare » est toujours visible pour les vendeurs. Le collègue en Chine ne voit que les commandes dropshipping (sans les montants).
+        L'onglet « J'ai vendu un phare » est toujours visible pour les vendeurs. Le collègue en Chine ne voit que les commandes dropshipping (sans les montants). Un compte « Lecture seule » voit tout, prix compris, mais ne peut rien modifier.
       </div>
 
       <h2 className="groupe">Infos que les vendeurs voient dans les fiches</h2>
@@ -175,7 +175,7 @@ function NouveauCompte({ onFermer, onCree }) {
       }
     >
       <Champ label="Rôle">
-        <Segments valeur={c.role} onChange={maj('role')} options={[['vendeur', 'Vendeur'], ['chine', 'Collègue Chine'], ['admin', 'Admin']]} />
+        <Segments valeur={c.role} onChange={maj('role')} options={[['vendeur', 'Vendeur'], ['chine', 'Chine'], ['lecteur', 'Lecture seule'], ['admin', 'Admin']]} />
       </Champ>
       <Champ label="Nom">
         <input value={c.nom} onChange={maj('nom')} placeholder="Ex. Karim" />
@@ -213,7 +213,7 @@ function ModifierCompte({ compte, moi, onFermer, onModifier }) {
       </Champ>
       {!moi && (
         <Champ label="Rôle">
-          <Segments valeur={role} onChange={setRole} options={[['vendeur', 'Vendeur'], ['chine', 'Collègue Chine'], ['admin', 'Admin']]} />
+          <Segments valeur={role} onChange={setRole} options={[['vendeur', 'Vendeur'], ['chine', 'Chine'], ['lecteur', 'Lecture seule'], ['admin', 'Admin']]} />
         </Champ>
       )}
       <Champ label="Nouveau mot de passe" aide="Laisse vide pour ne pas le changer.">

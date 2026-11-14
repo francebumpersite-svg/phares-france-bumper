@@ -48,13 +48,15 @@ export default function Retours() {
         </div>
         {!liste.length && <Vide titre="Aucun retour" texte="" />}
       </main>
-      <div className="barre">
-        <div className="barre-in">
-          <button type="button" className="btn btn-rouge" onClick={() => setFiche({})}>
-            + Nouveau retour client
-          </button>
+      {d.profil?.role !== 'lecteur' && (
+        <div className="barre">
+          <div className="barre-in">
+            <button type="button" className="btn btn-rouge" onClick={() => setFiche({})}>
+              + Nouveau retour client
+            </button>
+          </div>
         </div>
-      </div>
+      )}
       {fiche && <FicheRetour onFermer={() => setFiche(null)} />}
       {grande && <PhotoGrande chemin={grande} onFermer={() => setGrande(null)} />}
     </>

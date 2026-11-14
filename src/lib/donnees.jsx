@@ -103,7 +103,7 @@ export function DonneesProvider({ session, children }) {
       r.reglages = reglages.data;
       r.synchro = synchro.data;
 
-      if (role === 'admin' || role === 'vendeur') {
+      if (role === 'admin' || role === 'vendeur' || role === 'lecteur') {
         const q = await Promise.all([
           supabase.from('phares').select('*').order('marque').limit(10000),
           supabase.rpc('phares_prive_visible'),

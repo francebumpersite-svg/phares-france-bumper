@@ -1,7 +1,7 @@
 // Gestion des comptes : premier compte admin, création et blocage des comptes employés.
 import { admin, appelant, cors, emailDe, json } from "../_shared/commun.ts";
 
-const ROLES = ["admin", "vendeur", "chine"];
+const ROLES = ["admin", "vendeur", "chine", "lecteur"];
 
 function identifiantValide(id: string) {
   return /^[a-z0-9][a-z0-9._-]{1,30}$/.test(id);
