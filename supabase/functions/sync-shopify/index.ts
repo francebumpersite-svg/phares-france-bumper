@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
   try {
     if (!boutique) throw new Error("Boutique Shopify non configurée");
     const { data: reglages } = await sb.from("reglages").select("filtre_shopify").eq("id", 1).single();
-    const filtre = (reglages?.filtre_shopify || "phare*").trim();
+    const filtre = (reglages?.filtre_shopify || "title:phare* AND NOT title:pare*").trim();
 
     const gql = client(boutique, await jetonShopify(boutique));
 
@@ -104,6 +104,8 @@ Deno.serve(async (req) => {
     do {
       const d = await gql(Q_PRODUITS, { q: `(${filtre}) AND status:active`, after });
       for (const p of d.products.nodes) {
+        // Pas de pare-chocs dans l'appli : uniquement les phares
+        if (/pare[\s-]?chocs?/i.test(p.title) || !/phare/i.test(p.title)) continue;
         const image = p.featuredMedia?.preview?.image?.url ?? null;
         for (const v of p.variants.nodes) {
           const vid = idCourt(v.id);

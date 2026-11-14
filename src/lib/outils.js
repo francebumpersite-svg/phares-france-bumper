@@ -22,7 +22,7 @@ try {
   nomsPays = null;
 }
 export const nomPays = (code) => {
-  if (!code || code === '??') return 'Pays inconnu';
+  if (!code || code === '??') return 'Retrait / sans livraison';
   try {
     return nomsPays ? nomsPays.of(code) : code;
   } catch {

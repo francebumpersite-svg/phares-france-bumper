@@ -27,7 +27,7 @@ export default function Reglages() {
   const [comptes, setComptes] = useState(d.equipe);
   const [nouveau, setNouveau] = useState(false);
   const [edition, setEdition] = useState(null);
-  const [filtre, setFiltre] = useState(r.filtre_shopify || 'phare*');
+  const [filtre, setFiltre] = useState(r.filtre_shopify || 'title:phare* AND NOT title:pare*');
   const [msg, setMsg] = useState('');
 
   const chargerComptes = async () => {
@@ -61,10 +61,10 @@ export default function Reglages() {
       <h2 className="groupe">Shopify</h2>
       <BandeauSynchro />
       <div className="bloc" style={{ background: 'var(--carte)' }}>
-        <Champ label="Quels produits Shopify sont des phares ?" aide="Recherche Shopify. Par défaut « phare* » = tous les produits dont le titre contient un mot commençant par « phare ».">
+        <Champ label="Quels produits Shopify sont des phares ?" aide="Recherche Shopify. Par défaut : les produits dont le titre contient « phare », sans les pare-chocs. Les pare-chocs sont de toute façon toujours exclus.">
           <div className="avec-bouton">
             <input value={filtre} onChange={(e) => setFiltre(e.target.value)} />
-            <button type="button" className="petit-bouton neutre" disabled={filtre === r.filtre_shopify} onClick={() => d.enregistrerReglages({ filtre_shopify: filtre.trim() || 'phare*' })}>
+            <button type="button" className="petit-bouton neutre" disabled={filtre === r.filtre_shopify} onClick={() => d.enregistrerReglages({ filtre_shopify: filtre.trim() || 'title:phare* AND NOT title:pare*' })}>
               OK
             </button>
           </div>
