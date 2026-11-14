@@ -57,6 +57,17 @@ export default function Reglages() {
     }
   }
 
+  async function accesFournisseurs(id, valeur) {
+    setMsg('');
+    setComptes((l) => l.map((c) => (c.id === id ? { ...c, acces_fournisseurs: valeur } : c)));
+    try {
+      await appelFonction('comptes', { action: 'acces_fournisseurs', id, valeur });
+    } catch (e) {
+      setMsg(e.message);
+    }
+    await chargerComptes();
+  }
+
   return (
     <main>
       <h2 className="groupe">Shopify</h2>
@@ -97,6 +108,34 @@ export default function Reglages() {
         ))}
       </div>
 
+      {d.profil?.acces_fournisseurs && (
+        <>
+          <h2 className="groupe">Qui voit l'onglet Fournisseurs</h2>
+          <div className="lignes">
+            <div className="ligne-r">
+              <span>
+                {d.profil.nom}
+                <small>Toi · toujours</small>
+              </span>
+            </div>
+            {comptes
+              .filter((c) => c.id !== d.profil.id)
+              .map((c) => (
+                <div className="ligne-r" key={c.id}>
+                  <span>
+                    {c.nom}
+                    <small>{ROLES[c.role]}</small>
+                  </span>
+                  <Interrupteur actif={!!c.acces_fournisseurs} label={`Fournisseurs visibles pour ${c.nom}`} onChange={(v) => accesFournisseurs(c.id, v)} />
+                </div>
+              ))}
+          </div>
+          <div className="aide" style={{ padding: '6px 2px' }}>
+            Personne d'autre ne voit cet onglet, même les autres administrateurs. Un compte qui a l'accès peut ajouter et modifier des fournisseurs ; toi seul peux en supprimer.
+          </div>
+        </>
+      )}
+
       <h2 className="groupe">Onglets que les vendeurs voient</h2>
       <div className="lignes">
         {ONGLETS.map(([k, l]) => (
@@ -107,7 +146,7 @@ export default function Reglages() {
         ))}
       </div>
       <div className="aide" style={{ padding: '6px 2px' }}>
-        L'onglet « J'ai vendu un phare » est toujours visible pour les vendeurs. Le collègue en Chine ne voit que les commandes dropshipping (sans les montants). Un compte « Lecture seule » voit tout, prix compris, mais ne peut rien modifier.
+        L'onglet « J'ai vendu un phare » est toujours visible pour les vendeurs. Le collègue en Chine voit le dropshipping, la Base Chine, les non compatibles et les retours, sans aucun prix ni fournisseur. Un compte « Lecture seule » voit tout, prix compris, mais ne peut rien modifier.
       </div>
 
       <h2 className="groupe">Infos que les vendeurs voient dans les fiches</h2>

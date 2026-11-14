@@ -6,6 +6,7 @@ import { Feuille, Icone } from './composants/ui.jsx';
 import Connexion from './ecrans/Connexion.jsx';
 import ACommander from './ecrans/ACommander.jsx';
 import Base from './ecrans/Base.jsx';
+import Fournisseurs from './ecrans/Fournisseurs.jsx';
 import { Ruptures, MeilleuresVentes } from './ecrans/Shopify.jsx';
 import Dropshipping, { VueChine } from './ecrans/Dropshipping.jsx';
 import Retours from './ecrans/Retours.jsx';
@@ -57,7 +58,16 @@ function Coque() {
   const [onglet, setOnglet] = useState(null);
   const [menu, setMenu] = useState(false);
 
+  const acces = !!profil?.acces_fournisseurs;
   const onglets = useMemo(() => {
+    const base = ongletsDuRole();
+    if (!acces) return base;
+    const f = { id: 'fournisseurs', label: 'Fournisseurs' };
+    const i = base.findIndex((o) => o.id === 'reglages');
+    return i < 0 ? [...base, f] : [...base.slice(0, i), f, ...base.slice(i)];
+  }, [role, reglages, acces]);
+
+  function ongletsDuRole() {
     if (role === 'admin') return [...ONGLETS.filter((o) => o.id !== 'vente'), { id: 'reglages', label: 'Réglages' }];
     if (role === 'lecteur') return ONGLETS.filter((o) => o.id !== 'vente');
     if (role === 'chine')
@@ -72,7 +82,7 @@ function Coque() {
       return ONGLETS.filter((o) => o.id === 'vente' || ok[o.id]);
     }
     return [];
-  }, [role, reglages]);
+  }
 
   const compte = useMemo(
     () => ({
@@ -170,6 +180,7 @@ function Coque() {
       )}
 
       {actif === 'chine' && <VueChine />}
+      {actif === 'fournisseurs' && <Fournisseurs />}
       {actif === 'vente' && <VenteVendeur />}
       {actif === 'a_commander' && <ACommander />}
       {actif === 'dropshipping' && <Dropshipping />}

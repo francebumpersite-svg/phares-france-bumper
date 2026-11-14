@@ -32,9 +32,27 @@ Deno.serve(async (req) => {
 
   if (action === "creer") return await creer(sb, corps);
 
+  const { data: moiProfil } = await sb.from("profils").select("acces_fournisseurs").eq("id", moi.id).maybeSingle();
+  const moiAcces = !!moiProfil?.acces_fournisseurs;
+
+  // Accès à l'onglet Fournisseurs : seul quelqu'un qui l'a déjà peut le donner ou le retirer
+  if (action === "acces_fournisseurs") {
+    const id = String(corps.id ?? "");
+    if (!moiAcces) return json({ erreur: "Réservé au patron" }, 403);
+    if (!id || id === moi.id) return json({ erreur: "Compte invalide" }, 400);
+    const { error } = await sb.from("profils").update({ acces_fournisseurs: corps.valeur === true }).eq("id", id);
+    if (error) return json({ erreur: error.message }, 400);
+    return json({ ok: true });
+  }
+
   if (action === "modifier") {
     const id = String(corps.id ?? "");
     if (!id) return json({ erreur: "Compte manquant" }, 400);
+    if (id !== moi.id && !moiAcces) {
+      // Un autre administrateur ne peut pas toucher au compte du patron (mot de passe, blocage, rôle)
+      const { data: cible } = await sb.from("profils").select("acces_fournisseurs").eq("id", id).maybeSingle();
+      if (cible?.acces_fournisseurs) return json({ erreur: "Ce compte ne peut être modifié que par son propriétaire" }, 403);
+    }
     if (id === moi.id && (corps.actif === false || (corps.role && corps.role !== "admin"))) {
       return json({ erreur: "Tu ne peux pas bloquer ou rétrograder ton propre compte" }, 400);
     }
@@ -66,7 +84,12 @@ Deno.serve(async (req) => {
   if (action === "liste") {
     const { data, error } = await sb.from("profils").select("*").order("created_at");
     if (error) return json({ erreur: error.message }, 400);
-    return json({ comptes: data });
+    const comptes = (data ?? []).map((c) => {
+      if (moiAcces) return c;
+      const { acces_fournisseurs: _cache, ...reste } = c;
+      return reste;
+    });
+    return json({ comptes });
   }
 
   return json({ erreur: "Action inconnue" }, 400);

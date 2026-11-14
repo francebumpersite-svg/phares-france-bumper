@@ -21,7 +21,8 @@ const VIDE = {
   retours: [],
   shopify: [],
   comptoir: {},
-  equipe: []
+  equipe: [],
+  fournisseurs: []
 };
 
 const CLE_CACHE = 'donnees-v1';
@@ -141,6 +142,11 @@ export function DonneesProvider({ session, children }) {
         r.prive = Object.fromEntries((c3.data || []).map((p) => [p.phare_id, p]));
         r.retours = c4.data || [];
       }
+      if (profil.acces_fournisseurs) {
+        const { data, error } = await supabase.from('fournisseurs').select('*').order('created_at', { ascending: false }).limit(5000);
+        if (error) throw error;
+        r.fournisseurs = data || [];
+      }
       setD(r);
       await set(`${CLE_CACHE}:${userId}`, r);
       prechargerPhotos(r);
@@ -226,6 +232,19 @@ export function DonneesProvider({ session, children }) {
       return { chemin, op: { k: 'photo', chemin } };
     }
 
+    // Photo ou PDF (catalogue) : gardé dans le téléphone, envoyé dès que possible
+    async function preparerFichier(fichier) {
+      const estPdf = fichier.type === 'application/pdf' || /\.pdf$/i.test(fichier.name || '');
+      if (!estPdf) {
+        const r = await preparerPhoto(fichier);
+        return { ...r, type: 'image', nom: fichier.name || '' };
+      }
+      const chemin = `fournisseurs/${new Date().toISOString().slice(0, 7)}/${uid()}.pdf`;
+      await set(`photo:${chemin}`, fichier);
+      photosLocales.set(chemin, URL.createObjectURL(fichier));
+      return { chemin, type: 'pdf', nom: fichier.name || 'Catalogue.pdf', op: { k: 'photo', chemin, contentType: 'application/pdf' } };
+    }
+
     const listeMaj = (liste, ligne, cle = 'id') => {
       const i = liste.findIndex((x) => x[cle] === ligne[cle]);
       if (i < 0) return [ligne, ...liste];
@@ -236,6 +255,33 @@ export function DonneesProvider({ session, children }) {
 
     return {
       preparerPhoto,
+      preparerFichier,
+
+      async enregistrerFournisseur(f, opsFichiers = []) {
+        const nouveau = !f.id;
+        const maintenant = new Date().toISOString();
+        const ligne = {
+          ...f,
+          id: f.id || uid(),
+          updated_at: maintenant,
+          ...(nouveau ? { created_at: maintenant, cree_par: userId } : {})
+        };
+        modifierLocal((x) => ({ ...x, fournisseurs: listeMaj(x.fournisseurs, ligne) }));
+        if (nouveau) {
+          await ajouterOps([...opsFichiers, { k: 'insert', table: 'fournisseurs', ligne }]);
+        } else {
+          const { id, ...champs } = ligne;
+          delete champs.created_at;
+          delete champs.cree_par;
+          await ajouterOps([...opsFichiers, { k: 'update', table: 'fournisseurs', id, champs }]);
+        }
+        return ligne;
+      },
+
+      async supprimerFournisseur(id) {
+        modifierLocal((x) => ({ ...x, fournisseurs: x.fournisseurs.filter((f) => f.id !== id) }));
+        await ajouterOps([{ k: 'delete', table: 'fournisseurs', id }]);
+      },
 
       async enregistrerPhare(phare, prive, opsPhotos = []) {
         const ligne = { ...phare, id: phare.id || uid(), updated_at: new Date().toISOString() };
@@ -363,7 +409,7 @@ async function executerOp(op) {
   if (op.k === 'photo') {
     const blob = await get(`photo:${op.chemin}`);
     if (!blob) return;
-    res = await supabase.storage.from('photos').upload(op.chemin, blob, { contentType: 'image/jpeg' });
+    res = await supabase.storage.from('photos').upload(op.chemin, blob, { contentType: op.contentType || 'image/jpeg' });
     if (res.error && /exist|duplicate/i.test(res.error.message || '')) return;
   } else if (op.k === 'insert') {
     res = await supabase.from(op.table).upsert(op.ligne, { ignoreDuplicates: true });
@@ -386,6 +432,7 @@ async function prechargerPhotos(r) {
   for (const p of r.phares) for (const c of [...(p.photos || []), ...(p.photos_fiche || [])]) urls.push(urlPhoto(c));
   for (const x of [...r.ventes, ...r.dropship, ...r.retours, ...r.chine]) if (x.photo) urls.push(urlPhoto(x.photo));
   for (const s of r.shopify) if (s.image) urls.push(s.image);
+  for (const f of r.fournisseurs || []) for (const c of [...(f.photos || []), ...(f.catalogue || []).map((x) => x.chemin)]) urls.push(urlPhoto(c));
   const aFaire = urls.filter((u) => u && !dejaPrecharge.has(u));
   for (const u of aFaire) {
     if (!navigator.onLine) return;
