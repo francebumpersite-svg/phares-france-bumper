@@ -139,6 +139,8 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
   });
   const [opsPhotos, setOpsPhotos] = useState([]);
   const [grande, setGrande] = useState(null);
+  const [mode, setMode] = useState(existant ? 'voir' : 'modifier');
+  const [vue, setVue] = useState(0);
   const [erreur, setErreur] = useState('');
   const info = useMemo(() => infosShopify(d.shopify, d.comptoir, p.shopify_product_id), [d.shopify, d.comptoir, p.shopify_product_id]);
   const maj = (k) => (e) => setP((x) => ({ ...x, [k]: e?.target ? e.target.value : e }));
@@ -178,16 +180,43 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
 
   const pvVisible = d.prive[existant?.id] || {};
 
-  if (!admin) {
-    // Lecture seule pour les vendeurs, avec seulement les infos autorisées
+  if (!admin || mode === 'voir') {
+    // Consultation : grandes photos qu'on peut agrandir et zoomer. L'admin peut passer en modification.
+    const toutes = [...p.photos, ...p.photos_fiche];
+    const principale = toutes[vue] || null;
     return (
-      <Feuille titre={`${p.marque} ${p.modele || ''}`} onFermer={onFermer}>
-        <div className="photos-ligne">
-          {[...p.photos, ...p.photos_fiche].map((c) => (
-            <Vignette key={c} chemin={c} taille={88} onClick={() => setGrande(c)} />
-          ))}
-          {!p.photos.length && !p.photos_fiche.length && info?.image && <Vignette url={info.image} taille={88} />}
-        </div>
+      <Feuille
+        titre={`${p.marque} ${p.modele || ''}`}
+        onFermer={onFermer}
+        pied={
+          admin ? (
+            <button type="button" className="btn btn-rouge btn-plein" onClick={() => setMode('modifier')}>
+              Modifier ce phare
+            </button>
+          ) : null
+        }
+      >
+        {toutes.length > 0 ? (
+          <>
+            <button type="button" className="galerie-grande" onClick={() => setGrande(vue)} aria-label="Agrandir la photo">
+              <img src={srcPhoto(principale)} alt={`Photo ${vue + 1} du phare`} />
+            </button>
+            {toutes.length > 1 && (
+              <div className="galerie-mini">
+                {toutes.map((c, i) => (
+                  <div key={c} className={i === vue ? 'on' : ''} style={{ flex: 'none' }}>
+                    <Vignette chemin={c} taille={64} onClick={() => setVue(i)} alt={`Photo ${i + 1}`} />
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="aide">Appuie sur la photo pour l'agrandir et zoomer.</div>
+          </>
+        ) : info?.image ? (
+          <button type="button" className="galerie-grande" onClick={() => setGrande(-1)} aria-label="Agrandir la photo">
+            <img src={info.image} alt="Photo du site" />
+          </button>
+        ) : null}
         <div className="bloc">
           <div className="trois">
             <Info l="Modèle" v={p.modele} />
@@ -207,6 +236,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
               <LienRef valeur={pvVisible.ref_fournisseur} suffixe="headlight" />
             </div>
           )}
+          {p.non_compatible && <span className="pastille p-rouge" style={{ justifySelf: 'start' }}>Non compatible</span>}
           {p.note && <Info l="Note" v={p.note} />}
         </div>
         {(pvVisible.prix_vente != null || pvVisible.prix_achat != null || pvVisible.marge != null || pvVisible.fournisseur) && (
@@ -217,6 +247,11 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
               {pvVisible.marge != null && <Info l="Marge" v={euro(pvVisible.marge)} />}
             </div>
             {pvVisible.fournisseur && <Info l="Fournisseur" v={pvVisible.fournisseur} />}
+            {pvVisible.lien && (
+              <a href={pvVisible.lien} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>
+                Voir le produit chez le fournisseur
+              </a>
+            )}
           </div>
         )}
         {info && (
@@ -226,9 +261,18 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
               <Info l="Ventes 60 j" v={info.ventes + info.comptoir} />
               <Info l="Prix site" v={euro(info.prix)} />
             </div>
+            <div className="pastilles">
+              <PastillesVentes info={info} />
+            </div>
           </div>
         )}
-        {grande && <PhotoGrande chemin={grande} onFermer={() => setGrande(null)} />}
+        {grande !== null && (
+          <PhotoGrande
+            chemins={grande === -1 ? [info?.image] : toutes}
+            depart={grande === -1 ? 0 : grande}
+            onFermer={() => setGrande(null)}
+          />
+        )}
       </Feuille>
     );
   }
@@ -266,7 +310,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
         <div className="photos-ligne">
           {p.photos.map((c) => (
             <div className="photo-mini" key={c}>
-              <Vignette chemin={c} taille={80} onClick={() => setGrande(c)} />
+              <Vignette chemin={c} taille={80} onClick={() => setGrande([...p.photos, ...p.photos_fiche].indexOf(c))} />
               <button type="button" className="retirer" aria-label="Retirer la photo" onClick={() => retirerPhoto('photos', c)}>
                 ×
               </button>
@@ -278,7 +322,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
         <div className="photos-ligne">
           {p.photos_fiche.map((c) => (
             <div className="photo-mini" key={c}>
-              <Vignette chemin={c} taille={80} onClick={() => setGrande(c)} />
+              <Vignette chemin={c} taille={80} onClick={() => setGrande([...p.photos, ...p.photos_fiche].indexOf(c))} />
               <button type="button" className="retirer" aria-label="Retirer la photo" onClick={() => retirerPhoto('photos_fiche', c)}>
                 ×
               </button>
@@ -408,7 +452,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
           <textarea value={p.note || ''} onChange={maj('note')} placeholder={p.non_compatible ? 'Pourquoi il n’est pas compatible…' : ''} />
         </Champ>
       </div>
-      {grande && <PhotoGrande chemin={grande} url={srcPhoto(grande)} onFermer={() => setGrande(null)} />}
+      {grande !== null && grande >= 0 && <PhotoGrande chemins={[...p.photos, ...p.photos_fiche]} depart={grande} onFermer={() => setGrande(null)} />}
     </Feuille>
   );
 }

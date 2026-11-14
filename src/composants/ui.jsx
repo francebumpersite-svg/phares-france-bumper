@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { srcPhoto, useDonnees } from '../lib/donnees.jsx';
 import { normaliser, plageAnnees, lienGoogle } from '../lib/outils.js';
 
@@ -112,11 +113,66 @@ export function Feuille({ titre, onFermer, children, pied }) {
   );
 }
 
-export function PhotoGrande({ chemin, url, onFermer }) {
-  return (
-    <div className="voile voile-noir" onClick={onFermer}>
-      <img className="photo-grande" src={url || srcPhoto(chemin)} alt="Photo agrandie" />
-    </div>
+// Visionneuse plein écran : zoom (boutons, double appui, pincement), déplacement, photo suivante/précédente
+export function PhotoGrande({ chemin, url, chemins, depart = 0, onFermer }) {
+  const liste = chemins && chemins.length ? chemins : [chemin || url];
+  const [i, setI] = useState(Math.min(depart, liste.length - 1));
+  const [zoom, setZoom] = useState(1);
+  const toucheX = useRef(null);
+  const src = (c) => (c && /^https?:|^blob:/.test(c) ? c : srcPhoto(c));
+  const aller = (d) => {
+    setZoom(1);
+    setI((x) => (x + d + liste.length) % liste.length);
+  };
+  useEffect(() => {
+    const avant = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const touche = (e) => {
+      if (e.key === 'Escape') onFermer();
+      if (e.key === 'ArrowRight' && liste.length > 1) aller(1);
+      if (e.key === 'ArrowLeft' && liste.length > 1) aller(-1);
+    };
+    window.addEventListener('keydown', touche);
+    return () => {
+      document.body.style.overflow = avant;
+      window.removeEventListener('keydown', touche);
+    };
+  }, []);
+  return createPortal(
+    <div className="visionneuse" role="dialog" aria-modal="true" aria-label="Photo agrandie">
+      <div className="vis-barre">
+        <span className="vis-compte">{liste.length > 1 ? `${i + 1} / ${liste.length}` : ''}</span>
+        <div className="vis-boutons">
+          <button type="button" onClick={() => setZoom((z) => Math.max(1, z - 0.5))} disabled={zoom <= 1} aria-label="Dézoomer">−</button>
+          <button type="button" onClick={() => setZoom((z) => Math.min(5, z + 0.5))} disabled={zoom >= 5} aria-label="Zoomer">+</button>
+          <button type="button" onClick={onFermer} aria-label="Fermer">×</button>
+        </div>
+      </div>
+      <div
+        className="vis-zone"
+        onTouchStart={(e) => { toucheX.current = e.touches.length === 1 ? e.touches[0].clientX : null; }}
+        onTouchEnd={(e) => {
+          if (zoom !== 1 || toucheX.current == null || liste.length < 2) return;
+          const dx = e.changedTouches[0].clientX - toucheX.current;
+          if (Math.abs(dx) > 60) aller(dx < 0 ? 1 : -1);
+          toucheX.current = null;
+        }}
+      >
+        <img
+          src={src(liste[i])}
+          alt={`Photo ${i + 1}`}
+          onDoubleClick={() => setZoom((z) => (z > 1 ? 1 : 2.5))}
+          style={zoom > 1 ? { width: `${zoom * 100}%`, maxWidth: 'none', maxHeight: 'none' } : null}
+        />
+      </div>
+      {liste.length > 1 && (
+        <div className="vis-nav">
+          <button type="button" onClick={() => aller(-1)} aria-label="Photo précédente">‹</button>
+          <button type="button" onClick={() => aller(1)} aria-label="Photo suivante">›</button>
+        </div>
+      )}
+    </div>,
+    document.body
   );
 }
 
