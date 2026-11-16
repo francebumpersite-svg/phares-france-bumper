@@ -347,14 +347,37 @@ async function partagerListe(phares, setEtat) {
 }
 
 // PDF de la commande pour le fournisseur : photo + modèle, années, côté, techno, réf., quantité. Ni prix, ni liens.
+// Charge une photo pour le PDF : essaie la copie en mémoire, puis le réseau, puis une simple balise image
+async function chargerImage(url) {
+  for (const u of [url, url + (url.includes('?') ? '&' : '?') + 'pdf=' + Date.now()]) {
+    try {
+      const r = await fetch(u, { cache: u === url ? 'default' : 'no-store' });
+      if (!r.ok) continue;
+      const b = await r.blob();
+      if (!b.size) continue;
+      return await createImageBitmap(b);
+    } catch {
+      /* on essaie autrement */
+    }
+  }
+  return await new Promise((ok, ko) => {
+    const i = new Image();
+    i.crossOrigin = 'anonymous';
+    i.onload = () => ok(i);
+    i.onerror = () => ko(new Error('photo illisible'));
+    i.src = url + (url.includes('?') ? '&' : '?') + 'img=' + Date.now();
+  });
+}
+
 async function imageEnDataUrl(chemin) {
-  const b = await (await fetch(srcPhoto(chemin))).blob();
-  const bitmap = await createImageBitmap(b);
+  const bitmap = await chargerImage(srcPhoto(chemin));
   const max = 700;
-  const k = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+  const largeurImg = bitmap.width || bitmap.naturalWidth;
+  const hauteurImg = bitmap.height || bitmap.naturalHeight;
+  const k = Math.min(1, max / Math.max(largeurImg, hauteurImg));
   const c = document.createElement('canvas');
-  c.width = Math.round(bitmap.width * k);
-  c.height = Math.round(bitmap.height * k);
+  c.width = Math.round(largeurImg * k);
+  c.height = Math.round(hauteurImg * k);
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, c.width, c.height);
@@ -402,18 +425,28 @@ async function listePdf(phares, setEtat) {
       }
       doc.setDrawColor(220, 220, 220);
       doc.roundedRect(marge, y, L - 2 * marge, hBloc - 4, 2, 2, 'S');
-      const chemin = p.photos?.[0] || p.photos_fiche?.[0];
       const cote = 44;
-      if (chemin) {
+      let photoMise = false;
+      for (const chemin of [...(p.photos || []), ...(p.photos_fiche || [])].slice(0, 3)) {
         try {
           const im = await imageEnDataUrl(chemin);
           const k = Math.min(cote / im.w, cote / im.h);
           const w = im.w * k;
           const h = im.h * k;
           doc.addImage(im.data, 'JPEG', marge + 2 + (cote - w) / 2, y + 2 + (cote - h) / 2, w, h);
+          photoMise = true;
+          break;
         } catch {
-          /* photo indisponible */
+          /* photo suivante */
         }
+      }
+      if (!photoMise) {
+        doc.setFillColor(245, 245, 245);
+        doc.rect(marge + 2, y + 2, cote, cote, 'F');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(150, 150, 150);
+        doc.text('Pas de photo', marge + 2 + cote / 2, y + 2 + cote / 2, { align: 'center' });
       }
       const x = marge + cote + 8;
       const largeur = L - marge - x - 4;
