@@ -1,5 +1,5 @@
 // Synchro Shopify -> appli, en LECTURE SEULE.
-// Lit les phares (stock, prix, image) et les commandes des 60 derniers jours (ventes par pays).
+// Lit les phares (stock, prix, image), les commandes des 60 derniers jours (ventes par pays) et l'historique des ventes de phares.
 // N'écrit jamais rien dans Shopify : uniquement des requêtes GraphQL "query".
 import { admin, appelant, cors, json } from "../_shared/commun.ts";
 
@@ -90,10 +90,125 @@ const Q_PEINTURE = `query($q: String, $after: String) {
     }
   }
 }`;
-const estOptionPeinture = (t: string) => /option\s+peinture/i.test(t || "");
+// Historique de toutes les commandes (droit read_all_orders), trié par date de vente réelle.
+// processedAt = vraie date de la vente (les anciennes commandes importées ont un createdAt faux).
+const qHistorique = (avecPays: boolean) => `query($q: String, $after: String) {
+  orders(first: 100, query: $q, after: $after, sortKey: PROCESSED_AT) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id name processedAt cancelledAt
+      ${avecPays ? "shippingAddress { countryCodeV2 }" : ""}
+      lineItems(first: 50) {
+        nodes {
+          id title sku quantity currentQuantity
+          variant { id } product { id }
+          image { url(transform: { maxWidth: 300 }) }
+          discountedUnitPriceAfterAllDiscountsSet { shopMoney { amount } }
+        }
+      }
+    }
+  }
+}`;
+// Un article est un phare si son titre le dit (et que ce n'est pas un pare-choc, une option ou une pièce détachée)
+const estPhare = (titre: string) => {
+  const t = (titre || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  if (!/\bphares?\b|\boptiques?\b/.test(t)) return false;
+  return !/pare.?chocs?|\bpc\b|peinture|\bpattes?\b|\bkit\b|reparation|ampoule|lave.?phare|nettoyeur|cache|grille|support|emballage|carton/.test(t);
+};
+const Q_PLUS_ANCIENNE = `query { orders(first: 1, sortKey: CREATED_AT) { nodes { createdAt } } }`;
+
+const estOptionPeinture =(t: string) => /option\s+peinture/i.test(t || "");
 const norm = (t: string) => (t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 const attr = (li: { customAttributes: { key: string; value: string }[] }, re: RegExp) =>
   li.customAttributes?.find((a) => re.test(norm(a.key)))?.value?.trim() || null;
+
+type Gql = (query: string, variables: Record<string, unknown>) => Promise<any>;
+type Sb = ReturnType<typeof admin>;
+
+async function lireHistorique(gql: Gql, sb: Sb, lignes: Map<string, Record<string, unknown>>, t0: number) {
+  const BUDGET_MS = 95_000; // on s'arrête avant la limite de temps, la suite se fait à la prochaine synchro
+  const { data: etat } = await sb.from("synchro").select("historique_jusqua, historique_debut, historique_complet").eq("id", 1).single();
+
+  // Shopify donne-t-il bien accès aux commandes de plus de 60 jours ?
+  const plusAncienne = (await gql(Q_PLUS_ANCIENNE, {})).orders.nodes[0]?.createdAt;
+  const accesTout = plusAncienne && Date.now() - new Date(plusAncienne).getTime() > 65 * 86400000;
+  if (!accesTout) {
+    const m = "Shopify ne donne pas encore l'accès à tout l'historique des commandes (droit read_all_orders à accepter).";
+    await sb.from("synchro").update({ historique_message: m }).eq("id", 1);
+    return m;
+  }
+
+  // Une fois tout l'historique lu, on relit les 30 derniers jours à chaque fois (annulations, remboursements)
+  let depuis: string = etat?.historique_jusqua ?? "2000-01-01T00:00:00Z";
+  if (etat?.historique_complet) {
+    const recent = new Date(Date.now() - 30 * 86400000).toISOString();
+    if (recent < depuis) depuis = recent;
+  }
+  let debutVu: string | null = etat?.historique_debut ?? null;
+  let avecPays = true;
+  let curseur: string | null = null;
+  let derniere = depuis;
+  let nbLignes = 0;
+  let fini = false;
+
+  while (true) {
+    let d;
+    try {
+      d = await gql(qHistorique(avecPays), { q: `processed_at:>='${depuis}'`, after: curseur });
+    } catch (e) {
+      if (avecPays && /shippingAddress|access|denied|protected/i.test(String((e as Error).message))) {
+        avecPays = false;
+        continue;
+      }
+      throw e;
+    }
+    const rows: Record<string, unknown>[] = [];
+    for (const o of d.orders.nodes) {
+      if (!debutVu || o.processedAt < debutVu) debutVu = o.processedAt;
+      if (o.processedAt > derniere) derniere = o.processedAt;
+      const pays = o.shippingAddress?.countryCodeV2 ?? null;
+      for (const li of o.lineItems.nodes) {
+        const vid = li.variant ? idCourt(li.variant.id) : null;
+        if (!estPhare(li.title) && !(vid && lignes.has(vid))) continue;
+        rows.push({
+          line_key: idCourt(li.id),
+          commande: o.name,
+          date_vente: o.processedAt,
+          product_id: li.product ? idCourt(li.product.id) : null,
+          variant_id: vid,
+          titre: li.title,
+          sku: li.sku || null,
+          image: li.image?.url ?? null,
+          quantite: li.currentQuantity ?? li.quantity ?? 0,
+          quantite_initiale: li.quantity ?? 0,
+          prix: li.discountedUnitPriceAfterAllDiscountsSet?.shopMoney?.amount != null ? Number(li.discountedUnitPriceAfterAllDiscountsSet.shopMoney.amount) : null,
+          pays,
+          annulee: !!o.cancelledAt,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    }
+    if (rows.length) {
+      const { error } = await sb.from("ventes_phares").upsert(rows, { onConflict: "line_key" });
+      if (error) throw new Error(error.message);
+      nbLignes += rows.length;
+    }
+    curseur = d.orders.pageInfo.hasNextPage ? d.orders.pageInfo.endCursor : null;
+    // On note où on en est après chaque page
+    await sb.from("synchro").update({ historique_jusqua: derniere, historique_debut: debutVu }).eq("id", 1);
+    if (!curseur) { fini = true; break; }
+    if (Date.now() - t0 > BUDGET_MS) break;
+  }
+
+  const m = fini
+    ? `Historique des ventes à jour (depuis le ${debutVu ? new Date(debutVu).toLocaleDateString("fr-FR") : "début"}).`
+    : `Historique des ventes en cours de lecture (arrivé au ${new Date(derniere).toLocaleDateString("fr-FR")}), la suite à la prochaine mise à jour.`;
+  await sb.from("synchro").update({
+    historique_complet: fini || !!etat?.historique_complet,
+    historique_message: m + (avecPays ? "" : " Pays non disponibles."),
+  }).eq("id", 1);
+  return `${m} ${nbLignes} lignes de phares lues.`;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -112,6 +227,7 @@ Deno.serve(async (req) => {
 
   const boutique = (Deno.env.get("SHOPIFY_SHOP") ?? "").replace(/\.myshopify\.com$/, "").trim();
   const debut = new Date().toISOString();
+  const t0 = Date.now();
 
   try {
     if (!boutique) throw new Error("Boutique Shopify non configurée");
@@ -244,6 +360,15 @@ Deno.serve(async (req) => {
     }
     await sb.from("shopify_produits").delete().lt("updated_at", debut);
 
+    // 4) Historique des ventes de phares depuis la création du site (par morceaux, reprend où il s'était arrêté)
+    let historique = "";
+    try {
+      historique = await lireHistorique(gql, sb, lignes, t0);
+    } catch (e) {
+      historique = `Historique des ventes non lu : ${String((e as Error).message ?? e).slice(0, 200)}`;
+      console.error("historique", e);
+    }
+
     const message = ventesIndispo
       ? "Stock à jour, mais Shopify refuse l'accès aux commandes (droit read_orders à ajouter)."
       : paysIndispo
@@ -252,7 +377,7 @@ Deno.serve(async (req) => {
       ? "Stock à jour, mais les commandes avec peinture n'ont pas pu être lues."
       : "Synchro faite";
     await sb.from("synchro").update({ derniere: new Date().toISOString(), ok: true, message, nb_produits: tout.length }).eq("id", 1);
-    return json({ ok: true, produits: tout.length, peintures: nbPeintures, message });
+    return json({ ok: true, produits: tout.length, peintures: nbPeintures, message, historique });
   } catch (e) {
     const message = String((e as Error).message ?? e).slice(0, 500);
     await sb.from("synchro").update({ derniere: new Date().toISOString(), ok: false, message }).eq("id", 1);

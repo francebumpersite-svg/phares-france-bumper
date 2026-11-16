@@ -23,8 +23,26 @@ const VIDE = {
   comptoir: {},
   equipe: [],
   fournisseurs: [],
-  peintures: []
+  peintures: [],
+  ventesPhares: []
 };
+
+// Historique des ventes de phares (peut dépasser 1000 lignes : lu par morceaux)
+async function lireVentesPhares() {
+  const tout = [];
+  for (let i = 0; i < 50; i++) {
+    const { data, error } = await supabase
+      .from('ventes_phares')
+      .select('line_key, commande, date_vente, product_id, titre, image, quantite, prix, pays, annulee')
+      .order('date_vente', { ascending: false })
+      .order('line_key')
+      .range(i * 1000, i * 1000 + 999);
+    if (error) throw error;
+    tout.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  return tout;
+}
 
 const CLE_CACHE = 'donnees-v1';
 const CLE_FILE = 'file-attente-v1';
@@ -126,6 +144,12 @@ export function DonneesProvider({ session, children }) {
         r.shopify = q[5].data;
         r.comptoir = Object.fromEntries((q[6].data || []).map((c) => [c.shopify_product_id, Number(c.nb)]));
         r.peintures = q[7].data || [];
+        try {
+          r.ventesPhares = await lireVentesPhares();
+        } catch (e) {
+          if (estErreurReseau(e)) throw e;
+          r.ventesPhares = []; // table pas encore créée : on n'empêche pas le reste de l'appli de marcher
+        }
       }
       if (role === 'admin') {
         const { data } = await supabase.from('profils').select('id, nom, identifiant, role, actif').order('created_at');
