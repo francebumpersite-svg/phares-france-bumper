@@ -43,10 +43,11 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
   const marge = pv?.marge != null ? pv.marge : pv?.prix_achat != null && prixVente != null ? prixVente - pv.prix_achat : null;
   const pctMarge = marge != null && prixVente ? Math.round((marge / prixVente) * 100) : null;
   const [grande, setGrande] = useState(false);
+  const [depart, setDepart] = useState(0);
   const toutes = [...(phare.photos || []), ...(phare.photos_fiche || [])];
   return (
     <div className={sel ? 'carte sel' : 'carte'}>
-      {grande && <PhotoGrande chemins={toutes.length ? toutes : [info?.image]} onFermer={() => setGrande(false)} />}
+      {grande && <PhotoGrande chemins={toutes.length ? toutes : [info?.image]} depart={depart} onFermer={() => setGrande(false)} />}
       {onSelection && (
         <button type="button" className={sel ? 'case on' : 'case'} aria-pressed={!!sel} aria-label={`Sélectionner ${phare.marque} ${phare.modele || ''}`} onClick={() => onSelection(phare.id)}>
           {sel && <Icone.coche />}
@@ -56,7 +57,10 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
         chemin={phare.photos?.[0] || phare.photos_fiche?.[0]}
         url={!phare.photos?.[0] && !phare.photos_fiche?.[0] ? info?.image : null}
         taille={64}
-        onClick={() => (toutes.length || info?.image ? setGrande(true) : onOuvrir(phare))}
+        onClick={() => {
+          setDepart(0);
+          toutes.length || info?.image ? setGrande(true) : onOuvrir(phare);
+        }}
       />
       <div className="corps">
         <button type="button" className="ouvrir" onClick={() => onOuvrir(phare)}>
@@ -81,6 +85,25 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
         </button>
         <LienRef valeur={phare.ref_oe} />
         <PastillesPhare phare={phare} />
+        {toutes.length > 1 && (
+          <div className="mini-photos" aria-label={`${toutes.length} photos`}>
+            {toutes.map((c, i) => (
+              <button
+                key={c}
+                type="button"
+                className="mini-photo"
+                onClick={() => {
+                  setDepart(i);
+                  setGrande(true);
+                }}
+                aria-label={`Photo ${i + 1}${phare.photos_legendes?.[c] ? ` : ${phare.photos_legendes[c]}` : ''}`}
+              >
+                <img src={srcPhoto(c)} alt="" loading="lazy" />
+                {phare.photos_legendes?.[c] && <span>{phare.photos_legendes[c]}</span>}
+              </button>
+            ))}
+          </div>
+        )}
         {extra}
       </div>
       {pctMarge != null && (

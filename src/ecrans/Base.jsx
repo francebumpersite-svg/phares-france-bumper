@@ -331,7 +331,7 @@ function Quantite({ phare, modifiable }) {
   );
 }
 
-// Liste pour le fournisseur : photo principale + texte (modèle, côté, réf., quantité). Ni prix, ni liens Google.
+// Liste pour le fournisseur : toutes les photos + texte (modèle, côté, réf., quantité). Ni prix, ni liens Google.
 export function texteListe(phares, avecRef = true) {
   const lignes = [`France Bumper — commande phares — ${new Date().toLocaleDateString('fr-FR')}`, ''];
   phares.forEach((p, i) => {
@@ -347,15 +347,19 @@ async function partagerListe(phares, setEtat, avecRef = true) {
   const texte = texteListe(phares, avecRef);
   setEtat('Préparation des photos…');
   const fichiers = [];
+  // Toutes les photos de chaque phare (face, arrière, fiche…), numérotées 1a, 1b, 1c…
   for (const [i, p] of phares.entries()) {
-    const chemin = p.photos?.[0] || p.photos_fiche?.[0];
-    if (!chemin) continue;
-    try {
-      const b = await (await fetch(srcPhoto(chemin))).blob();
-      const nomPhoto = avecRef ? `${i + 1}-${p.marque}-${p.ref_oe || ''}.jpg` : `${i + 1}-${p.marque}.jpg`;
-      fichiers.push(new File([b], nomPhoto.replace(/[^\w.-]+/g, '-'), { type: 'image/jpeg' }));
-    } catch {
-      /* photo indisponible */
+    const chemins = [...(p.photos || []), ...(p.photos_fiche || [])];
+    for (const [j, chemin] of chemins.entries()) {
+      setEtat(`Préparation des photos… phare ${i + 1} / ${phares.length}`);
+      try {
+        const b = await (await fetch(srcPhoto(chemin))).blob();
+        const lettre = chemins.length > 1 ? String.fromCharCode(97 + (j % 26)) : '';
+        const nomPhoto = avecRef ? `${i + 1}${lettre}-${p.marque}-${p.ref_oe || ''}.jpg` : `${i + 1}${lettre}-${p.marque}.jpg`;
+        fichiers.push(new File([b], nomPhoto.replace(/[^\w.-]+/g, '-'), { type: 'image/jpeg' }));
+      } catch {
+        /* photo indisponible */
+      }
     }
   }
   setEtat('');
@@ -441,9 +445,13 @@ async function listePdf(phares, setEtat, avecRef = true) {
     doc.setFontSize(11);
     doc.text(`${total} phare${total > 1 ? 's' : ''} à commander (${phares.length} modèle${phares.length > 1 ? 's' : ''})`, marge, 27);
     let y = 32;
-    const hBloc = 52;
+    const cote = 42; // taille d'une photo
+    const parLigne = 4; // photos par ligne
     for (const [i, p] of phares.entries()) {
       setEtat(`Création du PDF… ${i + 1} / ${phares.length}`);
+      const chemins = [...(p.photos || []), ...(p.photos_fiche || [])];
+      const nbLignes = Math.max(1, Math.ceil(chemins.length / parLigne));
+      const hBloc = 26 + nbLignes * (cote + 6) + 4;
       if (y + hBloc > H - 10) {
         doc.addPage();
         page += 1;
@@ -452,51 +460,57 @@ async function listePdf(phares, setEtat, avecRef = true) {
       }
       doc.setDrawColor(220, 220, 220);
       doc.roundedRect(marge, y, L - 2 * marge, hBloc - 4, 2, 2, 'S');
-      const cote = 44;
-      let photoMise = false;
-      for (const chemin of [...(p.photos || []), ...(p.photos_fiche || [])].slice(0, 3)) {
+      const x = marge + 4;
+      const largeur = L - 2 * marge - 8;
+      // En-tête du bloc : modèle, détails, réf. et quantité
+      doc.setTextColor(17, 17, 17);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text(doc.splitTextToSize(`${i + 1}. ${[p.marque, p.modele].filter(Boolean).join(' ')}`, largeur - 40)[0], x, y + 7);
+      doc.setTextColor(201, 42, 42);
+      doc.text(`Quantité : ${Math.max(1, Number(p.quantite) || 1)}`, L - marge - 4, y + 7, { align: 'right' });
+      doc.setTextColor(17, 17, 17);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      const details = [p.annees ? `Années : ${p.annees}` : null, `Côté : ${libelleCote(p.cote)}`, p.type_eclairage ? `Technologie : ${p.type_eclairage}` : null]
+        .filter(Boolean)
+        .join('   ·   ');
+      doc.text(doc.splitTextToSize(details, largeur)[0], x, y + 13);
+      if (avecRef) {
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Réf. ${p.ref_oe || '—'}`, x, y + 19);
+      }
+      // Toutes les photos du phare, avec leur légende (face, arrière, fiche…)
+      const yPhotos = y + 23;
+      if (!chemins.length) {
+        doc.setFillColor(245, 245, 245);
+        doc.rect(x, yPhotos, cote, cote, 'F');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(150, 150, 150);
+        doc.text('Pas de photo', x + cote / 2, yPhotos + cote / 2, { align: 'center' });
+      }
+      for (const [j, chemin] of chemins.entries()) {
+        const px = x + (j % parLigne) * (cote + 4);
+        const py = yPhotos + Math.floor(j / parLigne) * (cote + 6);
         try {
           const im = await imageEnDataUrl(chemin);
           const k = Math.min(cote / im.w, cote / im.h);
           const w = im.w * k;
           const h = im.h * k;
-          doc.addImage(im.data, 'JPEG', marge + 2 + (cote - w) / 2, y + 2 + (cote - h) / 2, w, h);
-          photoMise = true;
-          break;
+          doc.addImage(im.data, 'JPEG', px + (cote - w) / 2, py + (cote - h) / 2, w, h);
         } catch {
-          /* photo suivante */
+          doc.setFillColor(245, 245, 245);
+          doc.rect(px, py, cote, cote, 'F');
+        }
+        const legende = p.photos_legendes?.[chemin];
+        if (legende) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7.5);
+          doc.setTextColor(90, 90, 90);
+          doc.text(doc.splitTextToSize(legende, cote)[0], px + cote / 2, py + cote + 3.5, { align: 'center' });
         }
       }
-      if (!photoMise) {
-        doc.setFillColor(245, 245, 245);
-        doc.rect(marge + 2, y + 2, cote, cote, 'F');
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.setTextColor(150, 150, 150);
-        doc.text('Pas de photo', marge + 2 + cote / 2, y + 2 + cote / 2, { align: 'center' });
-      }
-      const x = marge + cote + 8;
-      const largeur = L - marge - x - 4;
-      doc.setTextColor(17, 17, 17);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.text(doc.splitTextToSize(`${i + 1}. ${[p.marque, p.modele].filter(Boolean).join(' ')}`, largeur).slice(0, 2), x, y + 8);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      const lignes = [
-        p.annees ? `Années : ${p.annees}` : null,
-        `Côté : ${libelleCote(p.cote)}`,
-        p.type_eclairage ? `Technologie : ${p.type_eclairage}` : null
-      ]
-        .filter(Boolean)
-        .flatMap((t) => doc.splitTextToSize(t, largeur))
-        .slice(0, 3);
-      doc.text(lignes, x, y + 19);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      if (avecRef) doc.text(`Réf. ${p.ref_oe || '—'}`, x, y + 38);
-      doc.setTextColor(201, 42, 42);
-      doc.text(`Quantité : ${Math.max(1, Number(p.quantite) || 1)}`, L - marge - 4, y + 38, { align: 'right' });
       y += hBloc;
     }
     const blob = doc.output('blob');
