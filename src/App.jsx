@@ -80,7 +80,6 @@ function Coque() {
         { id: 'base', label: 'Base Chine' },
         { id: 'base2', label: 'Base 2' },
         { id: 'commande', label: 'Commande phare' },
-        { id: 'non_compatibles', label: 'Non compatibles' },
         { id: 'retours', label: 'Retours client' }
       ];
     if (role === 'vendeur') {

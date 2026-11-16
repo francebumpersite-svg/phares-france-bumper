@@ -149,7 +149,7 @@ export default function Reglages() {
         ))}
       </div>
       <div className="aide" style={{ padding: '6px 2px' }}>
-        L'onglet « J'ai vendu un phare » est toujours visible pour les vendeurs. Le collègue en Chine voit le dropshipping, la Base Chine, les non compatibles et les retours, sans aucun prix ni fournisseur. Un compte « Lecture seule » voit tout, prix compris, mais ne peut rien modifier.
+        L'onglet « J'ai vendu un phare » est toujours visible pour les vendeurs. Le collègue en Chine voit le dropshipping, la Base Chine, la Base 2, Commande phare et les retours ; il peut gérer les phares de ces bases, sans jamais voir les prix ni ton fournisseur. Un compte « Lecture seule » voit tout, prix compris, mais ne peut rien modifier.
       </div>
 
       <h2 className="groupe">Infos que les vendeurs voient dans les fiches</h2>

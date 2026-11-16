@@ -6,7 +6,8 @@ import FichePhare, { CartePhare } from './FichePhare.jsx';
 
 export default function Base({ mode }) {
   const d = useDonnees();
-  const admin = d.profil?.role === 'admin';
+  // L'admin gère tout ; le collègue en Chine gère Base Chine, Base 2 et Commande phare
+  const admin = d.profil?.role === 'admin' || (d.profil?.role === 'chine' && mode !== 'non_compatibles');
   // Base Chine = seulement les phares à acheter en Chine (pas les phares du site)
   // Base Chine = la 1re liste ; Base 2 = la nouvelle liste (hors phares déjà transférés en commande)
   const phares = useMemo(() => {
@@ -210,6 +211,7 @@ function analyser(texte) {
 
 function CollerListe({ onFermer, nonCompatible, base2 }) {
   const d = useDonnees();
+  const sansPrive = d.profil?.role !== 'admin';
   const [texte, setTexte] = useState('');
   const [statut, setStatut] = useState('base');
   const lignes = useMemo(() => analyser(texte), [texte]);
@@ -232,7 +234,7 @@ function CollerListe({ onFermer, nonCompatible, base2 }) {
           position: 'avant'
         },
         prive:
-          o.ref_fournisseur || o.prix_achat || o.fournisseur
+          !sansPrive && (o.ref_fournisseur || o.prix_achat || o.fournisseur)
             ? { ref_fournisseur: o.ref_fournisseur || null, prix_achat: nombre(o.prix_achat), fournisseur: o.fournisseur || null }
             : null
       }))

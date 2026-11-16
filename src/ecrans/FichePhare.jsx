@@ -135,6 +135,9 @@ const VIDE = {
 export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
   const d = useDonnees();
   const admin = d.profil?.role === 'admin';
+  // Le collègue en Chine peut gérer les phares des bases Chine (sans prix, fournisseur ni Shopify)
+  const equipeChine = d.profil?.role === 'chine';
+  const peutModifier = admin || equipeChine;
   const existant = phare?.id ? phare : null;
   const [p, setP] = useState(() => ({ ...VIDE, ...(existant || {}), ...(initial || {}) }));
   const [pv, setPv] = useState(() => {
@@ -191,7 +194,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
 
   const pvVisible = d.prive[existant?.id] || {};
 
-  if (!admin || mode === 'voir') {
+  if (!peutModifier || mode === 'voir') {
     // Consultation : grandes photos qu'on peut agrandir et zoomer. L'admin peut passer en modification.
     const toutes = [...p.photos, ...p.photos_fiche];
     const principale = toutes[vue] || null;
@@ -200,7 +203,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
         titre={`${p.marque} ${p.modele || ''}`}
         onFermer={onFermer}
         pied={
-          admin ? (
+          peutModifier ? (
             <button type="button" className="btn btn-rouge btn-plein" onClick={() => setMode('modifier')}>
               Modifier ce phare
             </button>
@@ -384,6 +387,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
             )}
           </div>
         </Champ>
+        {admin && (
         <Champ label="Réf. fournisseur Chine">
           <div className="avec-bouton">
             <input value={pv.ref_fournisseur} onChange={majPv('ref_fournisseur')} style={{ fontFamily: 'var(--mono)' }} />
@@ -394,6 +398,8 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
             )}
           </div>
         </Champ>
+        )}
+        {admin && (
         <div className="deux">
           <Champ label="Fournisseur">
             <input value={pv.fournisseur} onChange={majPv('fournisseur')} />
@@ -409,8 +415,11 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
             </div>
           </Champ>
         </div>
+        )}
       </div>
 
+      {admin && (
+        <>
       <div className="bloc">
         <h4>
           <Icone.cadenas /> Prix · visible seulement par toi (sauf si tu l'autorises)
@@ -447,6 +456,8 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
           </>
         )}
       </div>
+        </>
+      )}
 
       <div className="bloc">
         <Champ label="Statut">
@@ -460,6 +471,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
             <Segments petit valeur={p.non_compatible ? 'oui' : 'non'} onChange={(v) => setP((x) => ({ ...x, non_compatible: v === 'oui' }))} options={[['non', 'Non'], ['oui', 'Oui']]} />
           </Champ>
         </div>
+        {admin && (
         <Champ label="Où ranger ce phare ?">
           <Segments
             petit
@@ -472,6 +484,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
             ]}
           />
         </Champ>
+        )}
         <Champ label="Note">
           <textarea value={p.note || ''} onChange={maj('note')} placeholder={p.non_compatible ? 'Pourquoi il n’est pas compatible…' : ''} />
         </Champ>
