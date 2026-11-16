@@ -355,7 +355,7 @@ async function partagerListe(phares, setEtat) {
   }
   try {
     await navigator.clipboard.writeText(texte);
-    window.alert('Liste copiée : colle-la dans WeChat.');
+    window.alert('Liste copiée.\n\nOuvre WeChat, va dans la discussion du fournisseur et colle (⌘ + V sur Mac, appui long › Coller sur téléphone).');
   } catch {
     window.prompt('Copie cette liste :', texte);
   }
@@ -507,6 +507,7 @@ async function listePdf(phares, setEtat) {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
+    setTimeout(() => window.alert(`PDF enregistré dans tes Téléchargements (« ${nom} »).\n\nPour l'envoyer par WeChat : ouvre WeChat sur l'ordinateur, ouvre la discussion du fournisseur et glisse le fichier dedans.`), 400);
   } catch (e) {
     setEtat('');
     window.alert(`Le PDF n'a pas pu être créé : ${e.message || e}`);
