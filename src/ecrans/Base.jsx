@@ -12,7 +12,8 @@ export default function Base({ mode }) {
   // Base Chine = la 1re liste ; Base 2 = la nouvelle liste (hors phares déjà transférés en commande)
   const phares = useMemo(() => {
     if (mode === 'non_compatibles') return d.phares.filter((p) => p.non_compatible);
-    if (mode === 'base2') return d.phares.filter((p) => p.base2 && !p.en_commande);
+    // Base 2 garde toujours tous ses phares, même ceux transférés dans Commande phare
+    if (mode === 'base2') return d.phares.filter((p) => p.base2);
     if (mode === 'commande') return d.phares.filter((p) => p.base2 && p.en_commande);
     return d.phares.filter((p) => p.chine !== false && !p.base2);
   }, [d.phares, mode]);
@@ -124,7 +125,7 @@ export default function Base({ mode }) {
                       setSelection(new Set());
                     }}
                   >
-                    Remettre dans Base 2 ({selection.size})
+                    Retirer de la commande ({selection.size})
                   </button>
                 ) : (
                   <button
@@ -141,6 +142,7 @@ export default function Base({ mode }) {
                 <button type="button" className="btn" onClick={() => setSelection(new Set())}>
                   Annuler
                 </button>
+                {mode !== 'commande' && (
                 <button
                   type="button"
                   className="btn btn-danger"
@@ -154,10 +156,11 @@ export default function Base({ mode }) {
                 >
                   Supprimer ({selection.size})
                 </button>
+                )}
               </div>
             ) : mode === 'commande' ? (
               <div className="details" style={{ textAlign: 'center' }}>
-                Coche un phare pour le remettre dans Base 2.
+                Coche un phare pour le retirer de la commande (il reste dans Base 2).
               </div>
             ) : (
               <div className="deux">
