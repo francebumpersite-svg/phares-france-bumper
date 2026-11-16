@@ -32,6 +32,8 @@ export default function Base({ mode }) {
       return n;
     });
   const visibles = filtre.filtres.slice(0, limite);
+  // Envoi : les phares cochés s'il y en a, sinon toute la liste affichée
+  const aEnvoyer = selection.size ? filtre.filtres.filter((p) => selection.has(p.id)) : filtre.filtres;
 
   return (
     <>
@@ -44,11 +46,11 @@ export default function Base({ mode }) {
           <>
           {phares.length > 0 && (
             <div className="deux" style={{ marginBottom: 10 }}>
-              <button type="button" className="btn" onClick={() => partagerListe(phares, setPartage)} disabled={!!partage}>
-                {partage || 'Envoyer la liste'}
+              <button type="button" className="btn" onClick={() => partagerListe(aEnvoyer, setPartage)} disabled={!!partage}>
+                {partage || (selection.size ? `Envoyer la sélection (${aEnvoyer.length})` : 'Envoyer toute la liste')}
               </button>
-              <button type="button" className="btn btn-noir" onClick={() => listePdf(phares, setPartage)} disabled={!!partage}>
-                Liste en PDF
+              <button type="button" className="btn btn-noir" onClick={() => listePdf(aEnvoyer, setPartage)} disabled={!!partage}>
+                {selection.size ? `PDF de la sélection (${aEnvoyer.length})` : 'Toute la liste en PDF'}
               </button>
             </div>
           )}
@@ -61,6 +63,19 @@ export default function Base({ mode }) {
           <h2 className="groupe">
             {filtre.filtres.length} phare{filtre.filtres.length > 1 ? 's' : ''}
           </h2>
+        )}
+        {cochable && filtre.filtres.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '-4px 0 8px' }}>
+            {filtre.filtres.every((p) => selection.has(p.id)) ? (
+              <button type="button" className="petit-bouton neutre" onClick={() => setSelection(new Set())}>
+                Tout désélectionner
+              </button>
+            ) : (
+              <button type="button" className="petit-bouton neutre" onClick={() => setSelection(new Set(filtre.filtres.map((p) => p.id)))}>
+                Tout sélectionner ({filtre.filtres.length})
+              </button>
+            )}
+          </div>
         )}
         <div className="liste">
           {visibles.map((p) => (
