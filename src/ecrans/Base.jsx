@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { srcPhoto, useDonnees } from '../lib/donnees.jsx';
 import { libelleCote, nombre } from '../lib/outils.js';
-import { BarreFiltres, Champ, Feuille, Segments, Vide, useFiltres } from '../composants/ui.jsx';
+import { BarreFiltres, Champ, Feuille, Interrupteur, Segments, Vide, useFiltres } from '../composants/ui.jsx';
 import FichePhare, { CartePhare } from './FichePhare.jsx';
 
 export default function Base({ mode }) {
@@ -24,6 +24,7 @@ export default function Base({ mode }) {
   const [selection, setSelection] = useState(new Set());
   const [limite, setLimite] = useState(80);
   const [partage, setPartage] = useState('');
+  const [avecRef, setAvecRef] = useState(true);
 
   const basculer = (id) =>
     setSelection((s) => {
@@ -45,11 +46,20 @@ export default function Base({ mode }) {
         {mode === 'commande' ? (
           <>
           {phares.length > 0 && (
+            <div className="ligne-r" style={{ marginBottom: 8 }}>
+              <span>
+                Mettre les références dans la liste
+                <small>{avecRef ? 'Les références partent avec la liste et le PDF' : 'Liste et PDF envoyés sans aucune référence'}</small>
+              </span>
+              <Interrupteur actif={avecRef} label="Mettre les références dans la liste envoyée" onChange={setAvecRef} />
+            </div>
+          )}
+          {phares.length > 0 && (
             <div className="deux" style={{ marginBottom: 10 }}>
-              <button type="button" className="btn" onClick={() => partagerListe(aEnvoyer, setPartage)} disabled={!!partage}>
+              <button type="button" className="btn" onClick={() => partagerListe(aEnvoyer, setPartage, avecRef)} disabled={!!partage}>
                 {partage || (selection.size ? `Envoyer la sélection (${aEnvoyer.length})` : 'Envoyer toute la liste')}
               </button>
-              <button type="button" className="btn btn-noir" onClick={() => listePdf(aEnvoyer, setPartage)} disabled={!!partage}>
+              <button type="button" className="btn btn-noir" onClick={() => listePdf(aEnvoyer, setPartage, avecRef)} disabled={!!partage}>
                 {selection.size ? `PDF de la sélection (${aEnvoyer.length})` : 'Toute la liste en PDF'}
               </button>
             </div>
@@ -322,18 +332,19 @@ function Quantite({ phare, modifiable }) {
 }
 
 // Liste pour le fournisseur : photo principale + texte (modèle, côté, réf., quantité). Ni prix, ni liens Google.
-export function texteListe(phares) {
+export function texteListe(phares, avecRef = true) {
   const lignes = [`France Bumper — commande phares — ${new Date().toLocaleDateString('fr-FR')}`, ''];
   phares.forEach((p, i) => {
     const titre = [p.marque, p.modele].filter(Boolean).join(' ');
     const details = [p.annees, libelleCote(p.cote), p.type_eclairage].filter(Boolean).join(' · ');
-    lignes.push(`${i + 1}. ${titre}`, `   ${details}`, `   Réf. ${p.ref_oe || '—'} — Quantité : ${Math.max(1, Number(p.quantite) || 1)}`, '');
+    const qte = `Quantité : ${Math.max(1, Number(p.quantite) || 1)}`;
+    lignes.push(`${i + 1}. ${titre}`, `   ${details}`, avecRef ? `   Réf. ${p.ref_oe || '—'} — ${qte}` : `   ${qte}`, '');
   });
   return lignes.join('\n').trim();
 }
 
-async function partagerListe(phares, setEtat) {
-  const texte = texteListe(phares);
+async function partagerListe(phares, setEtat, avecRef = true) {
+  const texte = texteListe(phares, avecRef);
   setEtat('Préparation des photos…');
   const fichiers = [];
   for (const [i, p] of phares.entries()) {
@@ -341,7 +352,8 @@ async function partagerListe(phares, setEtat) {
     if (!chemin) continue;
     try {
       const b = await (await fetch(srcPhoto(chemin))).blob();
-      fichiers.push(new File([b], `${i + 1}-${p.marque}-${p.ref_oe || ''}.jpg`.replace(/[^\w.-]+/g, '-'), { type: 'image/jpeg' }));
+      const nomPhoto = avecRef ? `${i + 1}-${p.marque}-${p.ref_oe || ''}.jpg` : `${i + 1}-${p.marque}.jpg`;
+      fichiers.push(new File([b], nomPhoto.replace(/[^\w.-]+/g, '-'), { type: 'image/jpeg' }));
     } catch {
       /* photo indisponible */
     }
@@ -400,7 +412,7 @@ async function imageEnDataUrl(chemin) {
   return { data: c.toDataURL('image/jpeg', 0.85), w: c.width, h: c.height };
 }
 
-async function listePdf(phares, setEtat) {
+async function listePdf(phares, setEtat, avecRef = true) {
   try {
     setEtat('Création du PDF…');
     const { jsPDF } = await import('jspdf');
@@ -427,7 +439,7 @@ async function listePdf(phares, setEtat) {
     entete(page);
     doc.setTextColor(17, 17, 17);
     doc.setFontSize(11);
-    doc.text(`${total} phare${total > 1 ? 's' : ''} à commander (${phares.length} référence${phares.length > 1 ? 's' : ''})`, marge, 27);
+    doc.text(`${total} phare${total > 1 ? 's' : ''} à commander (${phares.length} modèle${phares.length > 1 ? 's' : ''})`, marge, 27);
     let y = 32;
     const hBloc = 52;
     for (const [i, p] of phares.entries()) {
@@ -482,7 +494,7 @@ async function listePdf(phares, setEtat) {
       doc.text(lignes, x, y + 19);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
-      doc.text(`Réf. ${p.ref_oe || '—'}`, x, y + 38);
+      if (avecRef) doc.text(`Réf. ${p.ref_oe || '—'}`, x, y + 38);
       doc.setTextColor(201, 42, 42);
       doc.text(`Quantité : ${Math.max(1, Number(p.quantite) || 1)}`, L - marge - 4, y + 38, { align: 'right' });
       y += hBloc;
