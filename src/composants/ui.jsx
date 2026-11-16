@@ -301,7 +301,10 @@ export function Interrupteur({ actif, onChange, label }) {
 }
 
 export function LienRef({ valeur, suffixe = 'phare' }) {
+  const { profil } = useDonnees();
   if (!valeur) return <span className="ref vide">Pas de référence</span>;
+  // Le collègue en Chine transmet la liste aux fournisseurs : référence seule, sans lien Google
+  if (profil?.role === 'chine') return <span className="ref ref-simple">Réf. {valeur}</span>;
   return (
     <a className="ref" href={lienGoogle(`${valeur} ${suffixe}`)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
       {valeur} · Google

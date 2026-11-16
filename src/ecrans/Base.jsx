@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useDonnees } from '../lib/donnees.jsx';
-import { nombre } from '../lib/outils.js';
+import { srcPhoto, useDonnees } from '../lib/donnees.jsx';
+import { libelleCote, nombre } from '../lib/outils.js';
 import { BarreFiltres, Champ, Feuille, Segments, Vide, useFiltres } from '../composants/ui.jsx';
 import FichePhare, { CartePhare } from './FichePhare.jsx';
 
@@ -21,6 +21,7 @@ export default function Base({ mode }) {
   const [coller, setColler] = useState(false);
   const [selection, setSelection] = useState(new Set());
   const [limite, setLimite] = useState(80);
+  const [partage, setPartage] = useState('');
 
   const basculer = (id) =>
     setSelection((s) => {
@@ -38,10 +39,17 @@ export default function Base({ mode }) {
           <div className="bandeau">Phares qui ne vont pas sur le véhicule annoncé, ou à ne plus commander. Note la raison dans chaque fiche.</div>
         )}
         {mode === 'commande' ? (
+          <>
+          {phares.length > 0 && (
+            <button type="button" className="btn btn-plein" style={{ marginBottom: 10 }} onClick={() => partagerListe(phares, setPartage)} disabled={!!partage}>
+              {partage || 'Envoyer la liste (WeChat, WhatsApp…)'}
+            </button>
+          )}
           <h2 className="groupe">
             {phares.reduce((n, x) => n + (Number(x.quantite) || 1), 0)} phare
             {phares.reduce((n, x) => n + (Number(x.quantite) || 1), 0) > 1 ? 's' : ''} à commander ({phares.length} référence{phares.length > 1 ? 's' : ''})
           </h2>
+          </>
         ) : (
           <h2 className="groupe">
             {filtre.filtres.length} phare{filtre.filtres.length > 1 ? 's' : ''}
@@ -273,4 +281,44 @@ function Quantite({ phare, modifiable }) {
       </button>
     </div>
   );
+}
+
+// Liste pour le fournisseur : photo principale + texte (modèle, côté, réf., quantité). Ni prix, ni liens Google.
+export function texteListe(phares) {
+  const lignes = [`France Bumper — commande phares — ${new Date().toLocaleDateString('fr-FR')}`, ''];
+  phares.forEach((p, i) => {
+    const titre = [p.marque, p.modele].filter(Boolean).join(' ');
+    const details = [p.annees, libelleCote(p.cote), p.type_eclairage].filter(Boolean).join(' · ');
+    lignes.push(`${i + 1}. ${titre}`, `   ${details}`, `   Réf. ${p.ref_oe || '—'} — Quantité : ${Math.max(1, Number(p.quantite) || 1)}`, '');
+  });
+  return lignes.join('\n').trim();
+}
+
+async function partagerListe(phares, setEtat) {
+  const texte = texteListe(phares);
+  setEtat('Préparation des photos…');
+  const fichiers = [];
+  for (const [i, p] of phares.entries()) {
+    const chemin = p.photos?.[0] || p.photos_fiche?.[0];
+    if (!chemin) continue;
+    try {
+      const b = await (await fetch(srcPhoto(chemin))).blob();
+      fichiers.push(new File([b], `${i + 1}-${p.marque}-${p.ref_oe || ''}.jpg`.replace(/[^\w.-]+/g, '-'), { type: 'image/jpeg' }));
+    } catch {
+      /* photo indisponible */
+    }
+  }
+  setEtat('');
+  try {
+    if (fichiers.length && navigator.canShare?.({ files: fichiers })) return await navigator.share({ files: fichiers, text: texte });
+    if (navigator.share) return await navigator.share({ text: texte });
+  } catch (e) {
+    if (e?.name === 'AbortError') return;
+  }
+  try {
+    await navigator.clipboard.writeText(texte);
+    window.alert('Liste copiée : colle-la dans WeChat.');
+  } catch {
+    window.prompt('Copie cette liste :', texte);
+  }
 }
