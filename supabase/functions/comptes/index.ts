@@ -81,6 +81,18 @@ Deno.serve(async (req) => {
     return json({ ok: true });
   }
 
+  // Supprimer un compte : seulement le patron, jamais son propre compte
+  if (action === "supprimer") {
+    const id = String(corps.id ?? "");
+    if (!moiAcces) return json({ erreur: "Réservé au patron" }, 403);
+    if (!id || id === moi.id) return json({ erreur: "Tu ne peux pas supprimer ton propre compte" }, 400);
+    const { error } = await sb.auth.admin.deleteUser(id);
+    if (error) {
+      return json({ erreur: "Ce compte a déjà des choses enregistrées dans l'appli : bloque-le plutôt que de le supprimer." }, 400);
+    }
+    return json({ ok: true });
+  }
+
   if (action === "liste") {
     const { data, error } = await sb.from("profils").select("*").order("created_at");
     if (error) return json({ erreur: error.message }, 400);

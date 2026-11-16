@@ -179,6 +179,22 @@ export default function Reglages() {
             await modifierCompte(edition.id, champs);
             setEdition(null);
           }}
+          onSupprimer={
+            d.profil?.acces_fournisseurs && edition.id !== d.profil.id
+              ? async () => {
+                  if (!window.confirm(`Supprimer définitivement le compte de ${edition.nom} (${edition.identifiant}) ? Il ne pourra plus se connecter.`)) return;
+                  setMsg('');
+                  try {
+                    await appelFonction('comptes', { action: 'supprimer', id: edition.id });
+                    setEdition(null);
+                  } catch (e) {
+                    setMsg(e.message);
+                    setEdition(null);
+                  }
+                  await chargerComptes();
+                }
+              : null
+          }
         />
       )}
     </main>
@@ -236,7 +252,7 @@ function NouveauCompte({ onFermer, onCree }) {
   );
 }
 
-function ModifierCompte({ compte, moi, onFermer, onModifier }) {
+function ModifierCompte({ compte, moi, onFermer, onModifier, onSupprimer }) {
   const [nom, setNom] = useState(compte.nom);
   const [role, setRole] = useState(compte.role);
   const [mdp, setMdp] = useState('');
@@ -245,13 +261,20 @@ function ModifierCompte({ compte, moi, onFermer, onModifier }) {
       titre={`Compte de ${compte.nom}`}
       onFermer={onFermer}
       pied={
-        <button
-          type="button"
-          className="btn btn-rouge btn-plein"
-          onClick={() => onModifier({ nom, ...(moi ? {} : { role }), ...(mdp ? { mot_de_passe: mdp } : {}) })}
-        >
-          Enregistrer
-        </button>
+        <div className={onSupprimer ? 'deux' : ''}>
+          {onSupprimer && (
+            <button type="button" className="btn btn-danger" onClick={onSupprimer}>
+              Supprimer le compte
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn-rouge btn-plein"
+            onClick={() => onModifier({ nom, ...(moi ? {} : { role }), ...(mdp ? { mot_de_passe: mdp } : {}) })}
+          >
+            Enregistrer
+          </button>
+        </div>
       }
     >
       <Champ label="Nom">
