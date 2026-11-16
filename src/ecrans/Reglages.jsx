@@ -11,7 +11,7 @@ const ONGLETS = [
   ['base', 'Base Chine'],
   ['base2', 'Base 2'],
   ['commande', 'Commande phare'],
-  ['ruptures', 'Ruptures'],
+  ['ruptures', 'Rupture site'],
   ['meilleures_ventes', 'Meilleures ventes'],
   ['non_compatibles', 'Non compatibles'],
   ['retours', 'Retours client'],
