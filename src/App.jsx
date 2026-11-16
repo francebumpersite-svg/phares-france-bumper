@@ -46,6 +46,8 @@ const ONGLETS = [
   { id: 'a_commander', label: 'À commander' },
   { id: 'dropshipping', label: 'Dropshipping' },
   { id: 'base', label: 'Base Chine' },
+  { id: 'base2', label: 'Base 2' },
+  { id: 'commande', label: 'Commande phare' },
   { id: 'ruptures', label: 'Ruptures' },
   { id: 'meilleures_ventes', label: 'Meilleures ventes' },
   { id: 'non_compatibles', label: 'Non compatibles' },
@@ -76,6 +78,8 @@ function Coque() {
       return [
         { id: 'chine', label: 'Dropshipping' },
         { id: 'base', label: 'Base Chine' },
+        { id: 'base2', label: 'Base 2' },
+        { id: 'commande', label: 'Commande phare' },
         { id: 'non_compatibles', label: 'Non compatibles' },
         { id: 'retours', label: 'Retours client' }
       ];
@@ -93,6 +97,7 @@ function Coque() {
       chine: d.chine.filter((x) => ['a_commander', 'commande'].includes(x.statut)).length,
       ruptures: new Set(d.shopify.filter((s) => (s.stock ?? 0) <= 0).map((s) => s.product_id)).size,
       non_compatibles: d.phares.filter((p) => p.non_compatible).length,
+      commande: d.phares.filter((p) => p.base2 && p.en_commande).length,
       retours: d.retours.filter((r) => r.statut === 'ouvert').length,
       peinture: d.peintures.filter((p) => p.statut === 'a_peindre').reduce((n, p) => n + (p.quantite || 1), 0)
     }),
@@ -189,6 +194,8 @@ function Coque() {
       {actif === 'a_commander' && <ACommander />}
       {actif === 'dropshipping' && <Dropshipping />}
       {actif === 'base' && <Base mode="base" />}
+      {actif === 'base2' && <Base mode="base2" />}
+      {actif === 'commande' && <Base mode="commande" />}
       {actif === 'non_compatibles' && <Base mode="non_compatibles" />}
       {actif === 'ruptures' && <Ruptures />}
       {actif === 'meilleures_ventes' && <MeilleuresVentes />}

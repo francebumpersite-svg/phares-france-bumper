@@ -9,6 +9,8 @@ const ONGLETS = [
   ['a_commander', 'À commander'],
   ['dropshipping', 'Dropshipping'],
   ['base', 'Base Chine'],
+  ['base2', 'Base 2'],
+  ['commande', 'Commande phare'],
   ['ruptures', 'Ruptures'],
   ['meilleures_ventes', 'Meilleures ventes'],
   ['non_compatibles', 'Non compatibles'],

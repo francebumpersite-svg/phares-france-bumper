@@ -8,7 +8,14 @@ export default function Base({ mode }) {
   const d = useDonnees();
   const admin = d.profil?.role === 'admin';
   // Base Chine = seulement les phares à acheter en Chine (pas les phares du site)
-  const phares = useMemo(() => (mode === 'non_compatibles' ? d.phares.filter((p) => p.non_compatible) : d.phares.filter((p) => p.chine !== false)), [d.phares, mode]);
+  // Base Chine = la 1re liste ; Base 2 = la nouvelle liste (hors phares déjà transférés en commande)
+  const phares = useMemo(() => {
+    if (mode === 'non_compatibles') return d.phares.filter((p) => p.non_compatible);
+    if (mode === 'base2') return d.phares.filter((p) => p.base2 && !p.en_commande);
+    if (mode === 'commande') return d.phares.filter((p) => p.base2 && p.en_commande);
+    return d.phares.filter((p) => p.chine !== false && !p.base2);
+  }, [d.phares, mode]);
+  const cochable = admin && ['base', 'base2', 'commande'].includes(mode);
   const filtre = useFiltres(phares);
   const [fiche, setFiche] = useState(null);
   const [coller, setColler] = useState(false);
@@ -39,8 +46,8 @@ export default function Base({ mode }) {
               key={p.id}
               phare={p}
               onOuvrir={(x) => setFiche({ phare: x })}
-              selection={admin && mode === 'base' ? selection : null}
-              onSelection={admin && mode === 'base' ? basculer : null}
+              selection={cochable ? selection : null}
+              onSelection={cochable ? basculer : null}
             />
           ))}
         </div>
@@ -51,8 +58,22 @@ export default function Base({ mode }) {
         )}
         {!filtre.filtres.length && (
           <Vide
-            titre={phares.length ? 'Aucun phare avec ces filtres' : mode === 'non_compatibles' ? 'Aucun phare non compatible' : 'La base est vide'}
-            texte={admin && !phares.length ? 'Ajoute tes phares un par un, ou colle une liste depuis ChatGPT ou Excel.' : ''}
+            titre={
+              phares.length
+                ? 'Aucun phare avec ces filtres'
+                : mode === 'non_compatibles'
+                ? 'Aucun phare non compatible'
+                : mode === 'commande'
+                ? 'Aucun phare en commande'
+                : 'La base est vide'
+            }
+            texte={
+              admin && !phares.length
+                ? mode === 'commande'
+                  ? 'Dans Base 2, coche les phares à commander puis appuie sur « Transférer dans Commande phare ».'
+                  : 'Ajoute tes phares un par un, ou colle une liste depuis ChatGPT ou Excel.'
+                : ''
+            }
           />
         )}
       </main>
@@ -61,23 +82,55 @@ export default function Base({ mode }) {
           <div className="barre-in">
             {selection.size > 0 ? (
               <div className="deux">
-                <button
-                  type="button"
-                  className="btn btn-rouge"
-                  onClick={async () => {
-                    await d.majPhares([...selection], { statut: 'a_commander' });
-                    setSelection(new Set());
-                  }}
-                >
-                  À commander ({selection.size})
-                </button>
+                {mode === 'base2' ? (
+                  <button
+                    type="button"
+                    className="btn btn-rouge"
+                    onClick={async () => {
+                      await d.majPhares([...selection], { en_commande: true });
+                      setSelection(new Set());
+                    }}
+                  >
+                    Transférer dans Commande phare ({selection.size})
+                  </button>
+                ) : mode === 'commande' ? (
+                  <button
+                    type="button"
+                    className="btn btn-rouge"
+                    onClick={async () => {
+                      await d.majPhares([...selection], { en_commande: false });
+                      setSelection(new Set());
+                    }}
+                  >
+                    Remettre dans Base 2 ({selection.size})
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-rouge"
+                    onClick={async () => {
+                      await d.majPhares([...selection], { statut: 'a_commander' });
+                      setSelection(new Set());
+                    }}
+                  >
+                    À commander ({selection.size})
+                  </button>
+                )}
                 <button type="button" className="btn" onClick={() => setSelection(new Set())}>
                   Annuler
                 </button>
               </div>
+            ) : mode === 'commande' ? (
+              <div className="details" style={{ textAlign: 'center' }}>
+                Coche un phare pour le remettre dans Base 2.
+              </div>
             ) : (
               <div className="deux">
-                <button type="button" className="btn btn-rouge" onClick={() => setFiche({ initial: mode === 'non_compatibles' ? { non_compatible: true } : {} })}>
+                <button
+                  type="button"
+                  className="btn btn-rouge"
+                  onClick={() => setFiche({ initial: mode === 'non_compatibles' ? { non_compatible: true } : mode === 'base2' ? { base2: true, chine: true } : {} })}
+                >
                   + Ajouter un phare
                 </button>
                 <button type="button" className="btn" onClick={() => setColler(true)}>
@@ -89,7 +142,7 @@ export default function Base({ mode }) {
         </div>
       )}
       {fiche && <FichePhare phare={fiche.phare} initial={fiche.initial} onFermer={() => setFiche(null)} />}
-      {coller && <CollerListe onFermer={() => setColler(false)} nonCompatible={mode === 'non_compatibles'} />}
+      {coller && <CollerListe onFermer={() => setColler(false)} nonCompatible={mode === 'non_compatibles'} base2={mode === 'base2'} />}
     </>
   );
 }
@@ -121,7 +174,7 @@ function analyser(texte) {
   return res;
 }
 
-function CollerListe({ onFermer, nonCompatible }) {
+function CollerListe({ onFermer, nonCompatible, base2 }) {
   const d = useDonnees();
   const [texte, setTexte] = useState('');
   const [statut, setStatut] = useState('base');
@@ -139,6 +192,7 @@ function CollerListe({ onFermer, nonCompatible }) {
           statut,
           quantite: 1,
           non_compatible: !!nonCompatible,
+          ...(base2 ? { base2: true, chine: true } : {}),
           photos: [],
           photos_fiche: [],
           position: 'avant'

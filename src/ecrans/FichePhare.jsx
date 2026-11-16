@@ -127,7 +127,8 @@ const VIDE = {
   photos: [],
   photos_fiche: [],
   shopify_product_id: null,
-  chine: true
+  chine: true,
+  base2: false
 };
 
 export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
@@ -460,10 +461,11 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
         <Champ label="Où ranger ce phare ?">
           <Segments
             petit
-            valeur={p.chine === false ? 'site' : 'chine'}
-            onChange={(v) => setP((x) => ({ ...x, chine: v === 'chine' }))}
+            valeur={p.chine === false ? 'site' : p.base2 ? 'base2' : 'chine'}
+            onChange={(v) => setP((x) => ({ ...x, chine: v !== 'site', base2: v === 'base2', en_commande: v === 'base2' ? !!x.en_commande : false }))}
             options={[
-              ['chine', 'Base Chine (à acheter en Chine)'],
+              ['chine', 'Base Chine'],
+              ['base2', 'Base 2'],
               ['site', 'Phare du site']
             ]}
           />
