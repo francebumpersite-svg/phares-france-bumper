@@ -206,3 +206,11 @@ button.carte { cursor: pointer; }
 .plaque { display: inline-flex; align-items: center; font-family: ui-monospace, Menlo, monospace; font-weight: 700; font-size: 12px; letter-spacing: .5px; padding: 1px 7px; border: 1.5px solid #1c2a6b; border-left: 7px solid #1c3fa8; border-right: 7px solid #1c3fa8; border-radius: 4px; background: #fff; color: #111; }
 .plaque.grande { font-size: 20px; padding: 4px 12px; border-left-width: 12px; border-right-width: 12px; }
 .legende-photo { font-size: 13px; color: var(--gris, #555); text-align: center; margin: -4px 0 6px; }
+
+/* Quantité à commander */
+.quantite { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.quantite .lab { margin-right: 4px; }
+.quantite button { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--ligne); background: var(--carte); font-size: 22px; font-weight: 700; line-height: 1; color: var(--texte); }
+.quantite button:disabled { opacity: .35; }
+.quantite input { width: 54px; height: 40px; text-align: center; font-size: 17px; font-weight: 700; border: 1px solid var(--ligne); border-radius: 10px; }
+.quantite-lecture { margin-top: 6px; font-size: 14px; }

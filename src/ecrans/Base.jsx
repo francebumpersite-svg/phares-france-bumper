@@ -37,9 +37,16 @@ export default function Base({ mode }) {
         {mode === 'non_compatibles' && (
           <div className="bandeau">Phares qui ne vont pas sur le véhicule annoncé, ou à ne plus commander. Note la raison dans chaque fiche.</div>
         )}
-        <h2 className="groupe">
-          {filtre.filtres.length} phare{filtre.filtres.length > 1 ? 's' : ''}
-        </h2>
+        {mode === 'commande' ? (
+          <h2 className="groupe">
+            {phares.reduce((n, x) => n + (Number(x.quantite) || 1), 0)} phare
+            {phares.reduce((n, x) => n + (Number(x.quantite) || 1), 0) > 1 ? 's' : ''} à commander ({phares.length} référence{phares.length > 1 ? 's' : ''})
+          </h2>
+        ) : (
+          <h2 className="groupe">
+            {filtre.filtres.length} phare{filtre.filtres.length > 1 ? 's' : ''}
+          </h2>
+        )}
         <div className="liste">
           {visibles.map((p) => (
             <CartePhare
@@ -48,6 +55,7 @@ export default function Base({ mode }) {
               onOuvrir={(x) => setFiche({ phare: x })}
               selection={cochable ? selection : null}
               onSelection={cochable ? basculer : null}
+              extra={mode === 'commande' ? <Quantite phare={p} modifiable={admin} /> : null}
             />
           ))}
         </div>
@@ -236,5 +244,33 @@ function CollerListe({ onFermer, nonCompatible, base2 }) {
         </div>
       )}
     </Feuille>
+  );
+}
+
+// Quantité à commander : sélecteur − / + pour l'admin, simple affichage pour les autres
+function Quantite({ phare, modifiable }) {
+  const d = useDonnees();
+  const q = Math.max(1, Number(phare.quantite) || 1);
+  if (!modifiable) return <div className="quantite-lecture">Quantité : <strong>{q}</strong></div>;
+  const changer = (n) => d.majPhares([phare.id], { quantite: Math.max(1, Math.min(999, n)) });
+  return (
+    <div className="quantite" role="group" aria-label={`Quantité de ${phare.marque} ${phare.modele || ''}`}>
+      <span className="lab">Quantité</span>
+      <button type="button" aria-label="Enlever un" disabled={q <= 1} onClick={() => changer(q - 1)}>
+        −
+      </button>
+      <input
+        inputMode="numeric"
+        value={q}
+        aria-label="Quantité"
+        onChange={(e) => {
+          const n = parseInt(e.target.value.replace(/\D/g, ''), 10);
+          if (n) changer(n);
+        }}
+      />
+      <button type="button" aria-label="Ajouter un" onClick={() => changer(q + 1)}>
+        +
+      </button>
+    </div>
   );
 }

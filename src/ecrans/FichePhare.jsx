@@ -34,7 +34,7 @@ export function PastillesVentes({ info }) {
   );
 }
 
-export function CartePhare({ phare, onOuvrir, selection, onSelection }) {
+export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
   const { prive, shopify, comptoir } = useDonnees();
   const pv = prive[phare.id];
   const info = infosShopify(shopify, comptoir, phare.shopify_product_id);
@@ -81,6 +81,7 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection }) {
         </button>
         <LienRef valeur={phare.ref_oe} />
         <PastillesPhare phare={phare} />
+        {extra}
       </div>
       {pctMarge != null && (
         <div className="droite">
