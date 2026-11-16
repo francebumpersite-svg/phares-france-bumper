@@ -211,6 +211,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
             <button type="button" className="galerie-grande" onClick={() => setGrande(vue)} aria-label="Agrandir la photo">
               <img src={srcPhoto(principale)} alt={`Photo ${vue + 1} du phare`} />
             </button>
+            {p.photos_legendes?.[principale] && <div className="legende-photo">{p.photos_legendes[principale]}</div>}
             {toutes.length > 1 && (
               <div className="galerie-mini">
                 {toutes.map((c, i) => (

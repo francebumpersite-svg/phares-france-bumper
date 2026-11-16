@@ -50,6 +50,7 @@ export default function ImportAncienne() {
       setEtat('Lecture du fichier…');
       const data = JSON.parse(await fichier.text());
       const fiches = Array.isArray(data.fiches) ? data.fiches : [];
+      const versBase2 = data.cible === 'base2';
       const photos = data.photos || {};
       if (!fiches.length) throw new Error('Ce fichier ne contient aucun phare.');
 
@@ -75,6 +76,7 @@ export default function ImportAncienne() {
         const dispo = liste.filter((p) => p && p.id && photos[p.id]);
         const vues = dispo.filter((p) => !estFiche(p.label)).map((p) => `import/${p.id}.jpg`);
         const vuesFiche = dispo.filter((p) => estFiche(p.label)).map((p) => `import/${p.id}.jpg`);
+        const legendes = Object.fromEntries(dispo.filter((p) => p.label).map((p) => [`import/${p.id}.jpg`, p.label]));
         const notes = [
           f.onglet === 'commander' && f.priorite ? `Priorité : ${PRIO[f.priorite] || f.priorite}` : null,
           f.notes || null,
@@ -111,6 +113,8 @@ export default function ImportAncienne() {
           note: notes || null,
           photos: vues,
           photos_fiche: vuesFiche,
+          photos_legendes: legendes,
+          ...(versBase2 ? { base2: true, chine: true } : {}),
           created_at: f.creeLe || new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
@@ -126,6 +130,10 @@ export default function ImportAncienne() {
       }
       await d.recharger();
       const nb = (s) => phares.filter((p) => p.statut === s).length;
+      if (versBase2) {
+        setEtat(`Terminé : ${phares.length} phares importés dans Base 2, ${ids.length} photos.`);
+        return;
+      }
       setEtat(
         `Terminé : ${phares.length} phares importés (${nb('base')} dans la base, ${nb('a_commander')} à commander, ${nb('commande')} commandés)` +
           `${retours.length ? `, ${retours.length} retours` : ''}, ${ids.length} photos.`
@@ -139,10 +147,10 @@ export default function ImportAncienne() {
 
   return (
     <div className="bloc" style={{ background: 'var(--carte)' }}>
-      <h4>Importer l'ancienne base (appli dans Claude)</h4>
+      <h4>Importer un fichier de phares</h4>
       <div className="aide">
-        Choisis le fichier « phares-france-bumper-export.json » téléchargé depuis l'ancienne appli. Tu peux le relancer sans
-        risque : les phares déjà importés sont mis à jour, pas dupliqués.
+        Choisis le fichier d'import préparé par Claude (.json). Tu peux le relancer sans risque : les phares déjà importés sont mis à
+        jour, pas dupliqués.
       </div>
       <button type="button" className="btn" disabled={occupe || !d.enLigne} onClick={() => ref.current?.click()}>
         {occupe ? 'Import en cours…' : 'Choisir le fichier'}
