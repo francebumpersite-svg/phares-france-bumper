@@ -41,9 +41,14 @@ export default function Base({ mode }) {
         {mode === 'commande' ? (
           <>
           {phares.length > 0 && (
-            <button type="button" className="btn btn-plein" style={{ marginBottom: 10 }} onClick={() => partagerListe(phares, setPartage)} disabled={!!partage}>
-              {partage || 'Envoyer la liste (WeChat, WhatsApp…)'}
-            </button>
+            <div className="deux" style={{ marginBottom: 10 }}>
+              <button type="button" className="btn" onClick={() => partagerListe(phares, setPartage)} disabled={!!partage}>
+                {partage || 'Envoyer la liste'}
+              </button>
+              <button type="button" className="btn btn-noir" onClick={() => listePdf(phares, setPartage)} disabled={!!partage}>
+                Liste en PDF
+              </button>
+            </div>
           )}
           <h2 className="groupe">
             {phares.reduce((n, x) => n + (Number(x.quantite) || 1), 0)} phare
@@ -333,5 +338,124 @@ async function partagerListe(phares, setEtat) {
     window.alert('Liste copiée : colle-la dans WeChat.');
   } catch {
     window.prompt('Copie cette liste :', texte);
+  }
+}
+
+// PDF de la commande pour le fournisseur : photo + modèle, années, côté, techno, réf., quantité. Ni prix, ni liens.
+async function imageEnDataUrl(chemin) {
+  const b = await (await fetch(srcPhoto(chemin))).blob();
+  const bitmap = await createImageBitmap(b);
+  const max = 700;
+  const k = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bitmap.width * k);
+  c.height = Math.round(bitmap.height * k);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(bitmap, 0, 0, c.width, c.height);
+  return { data: c.toDataURL('image/jpeg', 0.85), w: c.width, h: c.height };
+}
+
+async function listePdf(phares, setEtat) {
+  try {
+    setEtat('Création du PDF…');
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const L = 210;
+    const H = 297;
+    const marge = 12;
+    const date = new Date().toLocaleDateString('fr-FR');
+    const total = phares.reduce((n, p) => n + Math.max(1, Number(p.quantite) || 1), 0);
+    const entete = (page) => {
+      doc.setFillColor(17, 17, 17);
+      doc.rect(0, 0, L, 18, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      doc.setTextColor(224, 58, 58);
+      doc.text('FRANCE', marge, 12);
+      doc.setTextColor(255, 255, 255);
+      doc.text('BUMPER', marge + doc.getTextWidth('FRANCE ') + 1, 12);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(`Commande phares — ${date} — page ${page}`, L - marge, 12, { align: 'right' });
+    };
+    let page = 1;
+    entete(page);
+    doc.setTextColor(17, 17, 17);
+    doc.setFontSize(11);
+    doc.text(`${total} phare${total > 1 ? 's' : ''} à commander (${phares.length} référence${phares.length > 1 ? 's' : ''})`, marge, 27);
+    let y = 32;
+    const hBloc = 52;
+    for (const [i, p] of phares.entries()) {
+      setEtat(`Création du PDF… ${i + 1} / ${phares.length}`);
+      if (y + hBloc > H - 10) {
+        doc.addPage();
+        page += 1;
+        entete(page);
+        y = 24;
+      }
+      doc.setDrawColor(220, 220, 220);
+      doc.roundedRect(marge, y, L - 2 * marge, hBloc - 4, 2, 2, 'S');
+      const chemin = p.photos?.[0] || p.photos_fiche?.[0];
+      const cote = 44;
+      if (chemin) {
+        try {
+          const im = await imageEnDataUrl(chemin);
+          const k = Math.min(cote / im.w, cote / im.h);
+          const w = im.w * k;
+          const h = im.h * k;
+          doc.addImage(im.data, 'JPEG', marge + 2 + (cote - w) / 2, y + 2 + (cote - h) / 2, w, h);
+        } catch {
+          /* photo indisponible */
+        }
+      }
+      const x = marge + cote + 8;
+      const largeur = L - marge - x - 4;
+      doc.setTextColor(17, 17, 17);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text(doc.splitTextToSize(`${i + 1}. ${[p.marque, p.modele].filter(Boolean).join(' ')}`, largeur).slice(0, 2), x, y + 8);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      const lignes = [
+        p.annees ? `Années : ${p.annees}` : null,
+        `Côté : ${libelleCote(p.cote)}`,
+        p.type_eclairage ? `Technologie : ${p.type_eclairage}` : null
+      ]
+        .filter(Boolean)
+        .flatMap((t) => doc.splitTextToSize(t, largeur))
+        .slice(0, 3);
+      doc.text(lignes, x, y + 19);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text(`Réf. ${p.ref_oe || '—'}`, x, y + 38);
+      doc.setTextColor(201, 42, 42);
+      doc.text(`Quantité : ${Math.max(1, Number(p.quantite) || 1)}`, L - marge - 4, y + 38, { align: 'right' });
+      y += hBloc;
+    }
+    const blob = doc.output('blob');
+    const nom = `France-Bumper-commande-phares-${date.replace(/\//g, '-')}.pdf`;
+    const fichier = new File([blob], nom, { type: 'application/pdf' });
+    setEtat('');
+    try {
+      if (navigator.canShare?.({ files: [fichier] })) {
+        await navigator.share({ files: [fichier], title: nom });
+        return;
+      }
+    } catch (e) {
+      if (e?.name === 'AbortError') return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nom;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    setEtat('');
+    window.alert(`Le PDF n'a pas pu être créé : ${e.message || e}`);
   }
 }
