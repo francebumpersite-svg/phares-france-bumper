@@ -135,6 +135,19 @@ export default function Base({ mode }) {
                 <button type="button" className="btn" onClick={() => setSelection(new Set())}>
                   Annuler
                 </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  style={{ gridColumn: '1 / -1' }}
+                  onClick={async () => {
+                    const n = selection.size;
+                    if (!window.confirm(`Supprimer définitivement ${n} phare${n > 1 ? 's' : ''} ? Les photos et les infos de ${n > 1 ? 'ces phares' : 'ce phare'} seront effacées.`)) return;
+                    await d.supprimerPhares([...selection]);
+                    setSelection(new Set());
+                  }}
+                >
+                  Supprimer ({selection.size})
+                </button>
               </div>
             ) : mode === 'commande' ? (
               <div className="details" style={{ textAlign: 'center' }}>

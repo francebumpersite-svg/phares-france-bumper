@@ -321,6 +321,11 @@ export function DonneesProvider({ session, children }) {
         await ajouterOps(ids.map((id) => ({ k: 'update', table: 'phares', id, champs: { ...champs, updated_at: maintenant } })));
       },
 
+      async supprimerPhares(ids) {
+        modifierLocal((x) => ({ ...x, phares: x.phares.filter((p) => !ids.includes(p.id)) }));
+        await ajouterOps(ids.map((id) => ({ k: 'delete', table: 'phares', id })));
+      },
+
       async supprimerPhare(id) {
         modifierLocal((x) => ({ ...x, phares: x.phares.filter((p) => p.id !== id) }));
         await ajouterOps([{ k: 'delete', table: 'phares', id }]);
