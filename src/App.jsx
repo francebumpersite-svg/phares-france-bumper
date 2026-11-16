@@ -8,6 +8,7 @@ import ACommander from './ecrans/ACommander.jsx';
 import Base from './ecrans/Base.jsx';
 import Fournisseurs from './ecrans/Fournisseurs.jsx';
 import Peinture from './ecrans/Peinture.jsx';
+import ChiffreAffaires from './ecrans/ChiffreAffaires.jsx';
 import { Ruptures, MeilleuresVentes } from './ecrans/Shopify.jsx';
 import Dropshipping, { VueChine } from './ecrans/Dropshipping.jsx';
 import Retours from './ecrans/Retours.jsx';
@@ -63,13 +64,26 @@ function Coque() {
   const [menu, setMenu] = useState(false);
 
   const acces = !!profil?.acces_fournisseurs;
+  const patron = role === 'admin' && !!profil?.est_patron;
   const onglets = useMemo(() => {
-    const base = ongletsDuRole();
-    if (!acces) return base;
-    const f = { id: 'fournisseurs', label: 'Fournisseurs' };
-    const i = base.findIndex((o) => o.id === 'reglages');
-    return i < 0 ? [...base, f] : [...base.slice(0, i), f, ...base.slice(i)];
-  }, [role, reglages, acces]);
+    let base = ongletsDuRole();
+    const ajouter = (o) => {
+      const i = base.findIndex((x) => x.id === 'reglages');
+      base = i < 0 ? [...base, o] : [...base.slice(0, i), o, ...base.slice(i)];
+    };
+    if (acces) ajouter({ id: 'fournisseurs', label: 'Fournisseurs' });
+    // Chiffre d'affaires : seulement le patron
+    if (patron) ajouter({ id: 'chiffre', label: "Chiffre d'affaires" });
+    return base;
+  }, [role, reglages, acces, patron]);
+
+  // Appui sur la notification de 18 h 30 : ouvre l'onglet Chiffre d'affaires
+  useEffect(() => {
+    if (window.location.hash === '#chiffre') setOnglet('chiffre');
+    const surMessage = (e) => e.data?.type === 'ouvrir-onglet' && setOnglet(e.data.onglet);
+    navigator.serviceWorker?.addEventListener('message', surMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', surMessage);
+  }, []);
 
   function ongletsDuRole() {
     if (role === 'admin') return [...ONGLETS.filter((o) => o.id !== 'vente'), { id: 'reglages', label: 'Réglages' }];
@@ -188,6 +202,7 @@ function Coque() {
 
       {actif === 'chine' && <VueChine />}
       {actif === 'fournisseurs' && <Fournisseurs />}
+      {actif === 'chiffre' && patron && <ChiffreAffaires />}
       {actif === 'peinture' && <Peinture />}
       {actif === 'vente' && <VenteVendeur />}
       {actif === 'a_commander' && <ACommander />}

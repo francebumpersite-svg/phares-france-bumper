@@ -28,7 +28,7 @@ export async function appelant(req: Request, sb: SupabaseClient) {
   if (error || !data?.user) return null;
   const { data: profil } = await sb.from("profils").select("*").eq("id", data.user.id).maybeSingle();
   if (!profil || !profil.actif) return null;
-  return profil as { id: string; nom: string; role: string; actif: boolean; identifiant: string };
+  return profil as { id: string; nom: string; role: string; actif: boolean; identifiant: string; est_patron?: boolean };
 }
 
 export const DOMAINE_COMPTES = "phares.france-bumper.com";
