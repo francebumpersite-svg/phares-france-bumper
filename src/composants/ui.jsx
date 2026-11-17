@@ -307,7 +307,7 @@ export function LienRef({ valeur, suffixe = 'phare' }) {
   if (profil?.role === 'chine') return <span className="ref ref-simple">Réf. {valeur}</span>;
   return (
     <a className="ref" href={lienGoogle(`${valeur} ${suffixe}`)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-      {valeur} · Google
+      Réf. {valeur}
     </a>
   );
 }
