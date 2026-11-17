@@ -4,6 +4,33 @@ import { libelleCote, nombre } from '../lib/outils.js';
 import { BarreFiltres, Champ, Feuille, Interrupteur, Segments, Vide, useFiltres } from '../composants/ui.jsx';
 import FichePhare, { CartePhare } from './FichePhare.jsx';
 
+// Range les phares par marque, modèle, années et éclairage, puis le gauche juste avant le droit du même modèle.
+// Si un même modèle est présent plusieurs fois, on garde les paires : gauche, droit, gauche, droit…
+const rangCote = (c) => (/gauche|conducteur/i.test(c || '') ? 0 : /droit|passager/i.test(c || '') ? 1 : 2);
+const cmpTexte = (a, b) => (a || '').localeCompare(b || '', 'fr', { numeric: true, sensitivity: 'base' });
+export function trierParModele(liste) {
+  const cleModele = (p) => [p.marque, p.modele, p.annees, p.type_eclairage].map((x) => (x || '').trim().toLowerCase()).join('|');
+  // Rang d'apparition de chaque phare parmi ceux du même modèle et du même côté (ordre d'ajout)
+  const parAjout = [...liste].sort((a, b) => cmpTexte(a.created_at, b.created_at) || cmpTexte(String(a.id), String(b.id)));
+  const compteur = new Map();
+  const rang = new Map();
+  for (const p of parAjout) {
+    const k = `${cleModele(p)}#${rangCote(p.cote)}`;
+    const n = compteur.get(k) || 0;
+    rang.set(p.id, n);
+    compteur.set(k, n + 1);
+  }
+  return [...liste].sort(
+    (a, b) =>
+      cmpTexte(a.marque, b.marque) ||
+      cmpTexte(a.modele, b.modele) ||
+      cmpTexte(a.annees, b.annees) ||
+      cmpTexte(a.type_eclairage, b.type_eclairage) ||
+      rang.get(a.id) - rang.get(b.id) ||
+      rangCote(a.cote) - rangCote(b.cote)
+  );
+}
+
 export default function Base({ mode }) {
   const d = useDonnees();
   // L'admin gère tout ; le collègue en Chine gère Base Chine, Base 2 et Commande phare
@@ -11,11 +38,13 @@ export default function Base({ mode }) {
   // Base Chine = seulement les phares à acheter en Chine (pas les phares du site)
   // Base Chine = la 1re liste ; Base 2 = la nouvelle liste (hors phares déjà transférés en commande)
   const phares = useMemo(() => {
-    if (mode === 'non_compatibles') return d.phares.filter((p) => p.non_compatible);
+    let l;
+    if (mode === 'non_compatibles') l = d.phares.filter((p) => p.non_compatible);
     // Base 2 garde toujours tous ses phares, même ceux transférés dans Commande phare
-    if (mode === 'base2') return d.phares.filter((p) => p.base2);
-    if (mode === 'commande') return d.phares.filter((p) => p.base2 && p.en_commande);
-    return d.phares.filter((p) => p.chine !== false && !p.base2);
+    else if (mode === 'base2') l = d.phares.filter((p) => p.base2);
+    else if (mode === 'commande') l = d.phares.filter((p) => p.base2 && p.en_commande);
+    else l = d.phares.filter((p) => p.chine !== false && !p.base2);
+    return trierParModele(l);
   }, [d.phares, mode]);
   const cochable = admin && ['base', 'base2', 'commande'].includes(mode);
   const filtre = useFiltres(phares);
