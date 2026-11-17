@@ -164,7 +164,9 @@ export default function Base({ mode }) {
                     type="button"
                     className="btn btn-rouge"
                     onClick={async () => {
-                      await d.majPhares([...selection], { en_commande: true });
+                      // La quantité se règle ensuite dans Commande phare : on part de 1
+                      const nouveaux = phares.filter((p) => selection.has(p.id) && !p.en_commande).map((p) => p.id);
+                      if (nouveaux.length) await d.majPhares(nouveaux, { en_commande: true, quantite: 1 });
                       setSelection(new Set());
                     }}
                   >
@@ -175,7 +177,7 @@ export default function Base({ mode }) {
                     type="button"
                     className="btn btn-rouge"
                     onClick={async () => {
-                      await d.majPhares([...selection], { en_commande: false });
+                      await d.majPhares([...selection], { en_commande: false, quantite: 1 });
                       setSelection(new Set());
                     }}
                   >

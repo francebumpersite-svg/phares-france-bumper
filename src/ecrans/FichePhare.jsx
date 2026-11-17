@@ -66,7 +66,8 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
         <button type="button" className="ouvrir" onClick={() => onOuvrir(phare)}>
           <span className="titre">
             {phare.marque}
-            {phare.quantite > 1 ? ` · x${phare.quantite}` : ''}
+            {/* Base 2 / Commande phare : la quantité est affichée à part, seulement dans la commande */}
+            {!phare.base2 && phare.quantite > 1 ? ` · x${phare.quantite}` : ''}
           </span>
           <span className="mvc">
             <span>
