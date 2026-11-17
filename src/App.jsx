@@ -110,7 +110,7 @@ function Coque() {
       chine: d.chine.filter((x) => ['a_commander', 'commande'].includes(x.statut)).length,
       ruptures: new Set(d.shopify.filter((s) => (s.stock ?? 0) <= 0).map((s) => s.product_id)).size,
       non_compatibles: d.phares.filter((p) => p.non_compatible).length,
-      commande: d.phares.filter((p) => p.base2 && p.en_commande).length,
+      commande: d.phares.filter((p) => p.en_commande && (p.base2 || p.chine !== false)).length,
       retours: d.retours.filter((r) => r.statut === 'ouvert').length,
       peinture: d.peintures.filter((p) => p.statut === 'a_peindre').reduce((n, p) => n + (p.quantite || 1), 0)
     }),

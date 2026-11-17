@@ -42,7 +42,8 @@ export default function Base({ mode }) {
     if (mode === 'non_compatibles') l = d.phares.filter((p) => p.non_compatible);
     // Base 2 garde toujours tous ses phares, même ceux transférés dans Commande phare
     else if (mode === 'base2') l = d.phares.filter((p) => p.base2);
-    else if (mode === 'commande') l = d.phares.filter((p) => p.base2 && p.en_commande);
+    // Commande phare : phares transférés depuis Base 2 ou depuis Base Chine (jamais ceux du site)
+    else if (mode === 'commande') l = d.phares.filter((p) => p.en_commande && (p.base2 || p.chine !== false));
     else l = d.phares.filter((p) => p.chine !== false && !p.base2);
     return trierParModele(l);
   }, [d.phares, mode]);
@@ -147,7 +148,7 @@ export default function Base({ mode }) {
             texte={
               admin && !phares.length
                 ? mode === 'commande'
-                  ? 'Dans Base 2, coche les phares à commander puis appuie sur « Transférer dans Commande phare ».'
+                  ? 'Dans Base 2 ou Base Chine, coche les phares à commander puis appuie sur « Transférer dans Commande phare ».'
                   : 'Ajoute tes phares un par un, ou colle une liste depuis ChatGPT ou Excel.'
                 : ''
             }
@@ -159,7 +160,7 @@ export default function Base({ mode }) {
           <div className="barre-in">
             {selection.size > 0 ? (
               <div className="deux">
-                {mode === 'base2' ? (
+                {mode === 'base2' || mode === 'base' ? (
                   <button
                     type="button"
                     className="btn btn-rouge"

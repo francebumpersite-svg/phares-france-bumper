@@ -67,7 +67,7 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
           <span className="titre">
             {phare.marque}
             {/* Base 2 / Commande phare : la quantité est affichée à part, seulement dans la commande */}
-            {!phare.base2 && phare.quantite > 1 ? ` · x${phare.quantite}` : ''}
+            {!phare.base2 && !phare.en_commande && phare.quantite > 1 ? ` · x${phare.quantite}` : ''}
           </span>
           <span className="mvc">
             <span>
@@ -129,7 +129,7 @@ export function PastillesPhare({ phare }) {
           {STATUTS_PHARE[phare.statut]}
         </span>
       )}
-      {phare.base2 && phare.en_commande && <span className="pastille p-bleu">En commande · x{Math.max(1, Number(phare.quantite) || 1)}</span>}
+      {phare.en_commande && (phare.base2 || phare.chine !== false) && <span className="pastille p-bleu">En commande · x{Math.max(1, Number(phare.quantite) || 1)}</span>}
       {phare.non_compatible && <span className="pastille p-rouge">Non compatible</span>}
       {info && info.stock <= 0 && <span className="pastille p-rouge">Rupture</span>}
       {info && info.stock > 0 && <span className="pastille p-vert">Stock {info.stock}</span>}
