@@ -235,3 +235,9 @@ button.carte { cursor: pointer; }
 .prix-achat .lab { display: inline; margin-right: 4px; }
 .prix-achat .variantes { display: block; font-weight: 500; font-size: 0.85rem; }
 .p-gris { background: var(--fond); color: var(--texte); border: 1px solid var(--ligne); }
+/* Point de couleur de la marge marché devant le modèle */
+.point-marge { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+.pm-vert { background: var(--vert); }
+.pm-orange { background: var(--orange); }
+.pm-rouge { background: var(--rouge); }
+.pm-gris { background: transparent; border: 1.5px solid var(--ligne); }

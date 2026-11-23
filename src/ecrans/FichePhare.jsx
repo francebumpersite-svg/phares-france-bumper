@@ -72,7 +72,10 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
           <span className="mvc">
             <span>
               <span className="lab">Modèle</span>
-              <span className="val">{phare.modele || '—'}</span>
+              <span className="val">
+                {profil?.role === 'admin' && pv?.prix_marche != null && <PointMarge pv={pv} frais={reglages?.frais_arrivee ?? 15} />}
+                {phare.modele || '—'}
+              </span>
             </span>
             <span>
               <span className="lab">Année</span>
@@ -127,6 +130,13 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
       )}
     </div>
   );
+}
+
+// Petit point de couleur devant le modèle (administrateur seulement)
+function PointMarge({ pv, frais }) {
+  const m = margeMarche(pv, frais);
+  const n = niveauMarge(m) || 'gris';
+  return <span className={`point-marge pm-${n}`} title={m != null ? `Marge marché ${Math.round(m * 100)} %` : "Marge marché : prix d'achat manquant"} aria-label={m != null ? `Marge marché ${Math.round(m * 100)} %` : 'Marge marché inconnue'} />;
 }
 
 // Marge marché, seulement pour l'administrateur : 🟢 80 % et plus · 🟠 50 à 80 % · 🔴 moins de 50 %
