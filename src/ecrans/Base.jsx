@@ -55,6 +55,9 @@ export default function Base({ mode }) {
   const [limite, setLimite] = useState(80);
   const [partage, setPartage] = useState('');
   const [avecRef, setAvecRef] = useState(true);
+  // Prix dans le PDF : seulement pour le patron, désactivé par défaut (la commande fournisseur part sans prix)
+  const [avecPrix, setAvecPrix] = useState(false);
+  const voitPrix = d.profil?.role === 'admin';
 
   const basculer = (id) =>
     setSelection((s) => {
@@ -84,12 +87,21 @@ export default function Base({ mode }) {
               <Interrupteur actif={avecRef} label="Mettre les références dans la liste envoyée" onChange={setAvecRef} />
             </div>
           )}
+          {phares.length > 0 && voitPrix && (
+            <div className="ligne-r" style={{ marginBottom: 8 }}>
+              <span>
+                Mettre les prix dans le PDF
+                <small>{avecPrix ? 'PDF avec prix : pour toi, ne pas l\'envoyer au fournisseur' : 'PDF sans prix (commande fournisseur)'}</small>
+              </span>
+              <Interrupteur actif={avecPrix} label="Mettre les prix d'achat dans le PDF" onChange={setAvecPrix} />
+            </div>
+          )}
           {phares.length > 0 && (
             <div className="deux" style={{ marginBottom: 10 }}>
               <button type="button" className="btn" onClick={() => partagerListe(aEnvoyer, setPartage, avecRef)} disabled={!!partage}>
                 {partage || (selection.size ? `Envoyer la sélection (${aEnvoyer.length})` : 'Envoyer toute la liste')}
               </button>
-              <button type="button" className="btn btn-noir" onClick={() => listePdf(aEnvoyer, setPartage, avecRef)} disabled={!!partage}>
+              <button type="button" className="btn btn-noir" onClick={() => listePdf(aEnvoyer, setPartage, avecRef, voitPrix && avecPrix ? d.prive : null)} disabled={!!partage}>
                 {selection.size ? `PDF de la sélection (${aEnvoyer.length})` : 'Toute la liste en PDF'}
               </button>
             </div>
@@ -409,7 +421,8 @@ async function partagerListe(phares, setEtat, avecRef = true) {
   }
 }
 
-// PDF de la commande pour le fournisseur : photo + modèle, années, côté, techno, réf., quantité. Ni prix, ni liens.
+// PDF de la commande pour le fournisseur : photo + modèle, années, côté, techno, réf., quantité. Ni liens.
+// Prix d'achat (€ et ¥) seulement si le patron active « Mettre les prix dans le PDF ».
 // Charge une photo pour le PDF : essaie la copie en mémoire, puis le réseau, puis une simple balise image
 async function chargerImage(url) {
   for (const u of [url, url + (url.includes('?') ? '&' : '?') + 'pdf=' + Date.now()]) {
@@ -448,7 +461,13 @@ async function imageEnDataUrl(chemin) {
   return { data: c.toDataURL('image/jpeg', 0.85), w: c.width, h: c.height };
 }
 
-async function listePdf(phares, setEtat, avecRef = true) {
+// Nombres pour le PDF : espaces normales (la police du PDF n'affiche pas les espaces fines)
+const nbPdf = (n, dec) =>
+  new Intl.NumberFormat('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec }).format(n).replace(/[\u202f\u00a0]/g, ' ');
+const eurPdf = (n) => `${nbPdf(n, 2)} €`;
+const yuanPdf = (n) => `${nbPdf(n, Number.isInteger(Number(n)) ? 0 : 2)} ¥`;
+
+async function listePdf(phares, setEtat, avecRef = true, prix = null) {
   try {
     setEtat('Création du PDF…');
     const { jsPDF } = await import('jspdf');
@@ -469,7 +488,7 @@ async function listePdf(phares, setEtat, avecRef = true) {
       doc.text('BUMPER', marge + doc.getTextWidth('FRANCE ') + 1, 12);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
-      doc.text(`Commande phares — ${date} — page ${page}`, L - marge, 12, { align: 'right' });
+      doc.text(`Commande phares${prix ? ' avec prix' : ''} — ${date} — page ${page}`, L - marge, 12, { align: 'right' });
     };
     let page = 1;
     entete(page);
@@ -477,13 +496,43 @@ async function listePdf(phares, setEtat, avecRef = true) {
     doc.setFontSize(11);
     doc.text(`${total} phare${total > 1 ? 's' : ''} à commander (${phares.length} modèle${phares.length > 1 ? 's' : ''})`, marge, 27);
     let y = 32;
+    if (prix) {
+      // Total de la commande (quantités comprises) ; les phares sans prix ou à plusieurs prix sont comptés à part
+      let totEur = 0;
+      let totYuan = 0;
+      let sansPrix = 0;
+      let variantes = 0;
+      for (const p of phares) {
+        const q = Math.max(1, Number(p.quantite) || 1);
+        const pv = prix[p.id];
+        if (pv?.prix_achat != null || pv?.prix_achat_rmb != null) {
+          totEur += (Number(pv.prix_achat) || 0) * q;
+          totYuan += (Number(pv.prix_achat_rmb) || 0) * q;
+        } else if (pv?.prix_achat_variantes) variantes += 1;
+        else sansPrix += 1;
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(201, 42, 42);
+      doc.text(`Total : ${eurPdf(totEur)}  ·  ${yuanPdf(totYuan)}`, marge, 33);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(90, 90, 90);
+      const hors = [
+        variantes ? `${variantes} modèle${variantes > 1 ? 's' : ''} à plusieurs prix` : null,
+        sansPrix ? `${sansPrix} modèle${sansPrix > 1 ? 's' : ''} sans prix` : null
+      ].filter(Boolean);
+      doc.text(hors.length ? `Hors total : ${hors.join(', ')}.` : 'Tous les phares ont un prix.', marge, 38);
+      y = 43;
+    }
     const cote = 42; // taille d'une photo
     const parLigne = 4; // photos par ligne
     for (const [i, p] of phares.entries()) {
       setEtat(`Création du PDF… ${i + 1} / ${phares.length}`);
       const chemins = [...(p.photos || []), ...(p.photos_fiche || [])];
       const nbLignes = Math.max(1, Math.ceil(chemins.length / parLigne));
-      const hBloc = 26 + nbLignes * (cote + 6) + 4;
+      const pv = prix ? prix[p.id] : null;
+      const lignePrix = prix ? 7 : 0;
+      const hBloc = 26 + lignePrix + nbLignes * (cote + 6) + 4;
       if (y + hBloc > H - 10) {
         doc.addPage();
         page += 1;
@@ -512,8 +561,26 @@ async function listePdf(phares, setEtat, avecRef = true) {
         doc.setFont('helvetica', 'bold');
         doc.text(`Réf. ${p.ref_oe || '—'}`, x, y + 19);
       }
+      if (prix) {
+        const q = Math.max(1, Number(p.quantite) || 1);
+        let t;
+        if (pv?.prix_achat != null || pv?.prix_achat_rmb != null) {
+          const morceaux = [pv.prix_achat != null ? eurPdf(pv.prix_achat) : null, pv.prix_achat_rmb != null ? yuanPdf(pv.prix_achat_rmb) : null].filter(Boolean);
+          t = `Prix : ${morceaux.join('  ·  ')}`;
+          if (q > 1) {
+            const tot = [pv.prix_achat != null ? eurPdf(pv.prix_achat * q) : null, pv.prix_achat_rmb != null ? yuanPdf(pv.prix_achat_rmb * q) : null].filter(Boolean);
+            t += `   (x${q} = ${tot.join('  ·  ')})`;
+          }
+        } else if (pv?.prix_achat_variantes) t = `Prix : ${pv.prix_achat_variantes}`;
+        else t = 'Prix : —';
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(201, 42, 42);
+        doc.text(doc.splitTextToSize(t, largeur)[0], x, y + 19 + (avecRef ? 6 : 0));
+        doc.setTextColor(17, 17, 17);
+      }
       // Toutes les photos du phare, avec leur légende (face, arrière, fiche…)
-      const yPhotos = y + 23;
+      const yPhotos = y + 23 + lignePrix;
       if (!chemins.length) {
         doc.setFillColor(245, 245, 245);
         doc.rect(x, yPhotos, cote, cote, 'F');
@@ -546,7 +613,7 @@ async function listePdf(phares, setEtat, avecRef = true) {
       y += hBloc;
     }
     const blob = doc.output('blob');
-    const nom = `France-Bumper-commande-phares-${date.replace(/\//g, '-')}.pdf`;
+    const nom = `France-Bumper-commande-phares-${prix ? 'avec-prix-' : ''}${date.replace(/\//g, '-')}.pdf`;
     const fichier = new File([blob], nom, { type: 'application/pdf' });
     setEtat('');
     try {
