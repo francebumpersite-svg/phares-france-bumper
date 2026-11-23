@@ -234,3 +234,4 @@ button.carte { cursor: pointer; }
 .prix-achat { font-weight: 600; font-size: 0.9rem; margin-top: 4px; }
 .prix-achat .lab { display: inline; margin-right: 4px; }
 .prix-achat .variantes { display: block; font-weight: 500; font-size: 0.85rem; }
+.p-gris { background: var(--fond); color: var(--texte); border: 1px solid var(--ligne); }

@@ -86,6 +86,13 @@ export default function Reglages() {
         </Champ>
       </div>
 
+      <h2 className="groupe">Marge marché</h2>
+      <div className="bloc" style={{ background: 'var(--carte)' }}>
+        <Champ label="Frais d'arrivée par phare (€)" aide="Transport, douane et TVA à l'import, de la Chine jusqu'à Taverny. Ils comptent dans la marge marché.">
+          <FraisArrivee valeur={r.frais_arrivee ?? 15} onOk={(v) => d.enregistrerReglages({ frais_arrivee: v })} />
+        </Champ>
+      </div>
+
       <h2 className="groupe">Importer</h2>
       <ImportAncienne />
 
@@ -289,5 +296,18 @@ function ModifierCompte({ compte, moi, onFermer, onModifier, onSupprimer }) {
         <input value={mdp} onChange={(e) => setMdp(e.target.value)} autoCapitalize="none" autoCorrect="off" />
       </Champ>
     </Feuille>
+  );
+}
+
+function FraisArrivee({ valeur, onOk }) {
+  const [v, setV] = useState(String(valeur));
+  const n = Number(String(v).replace(',', '.'));
+  return (
+    <div className="avec-bouton">
+      <input value={v} onChange={(e) => setV(e.target.value)} inputMode="decimal" />
+      <button type="button" className="petit-bouton neutre" disabled={Number.isNaN(n) || n < 0 || n === Number(valeur)} onClick={() => onOk(n)}>
+        OK
+      </button>
+    </div>
   );
 }

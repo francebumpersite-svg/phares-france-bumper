@@ -148,3 +148,14 @@ export async function lireQr(fichier) {
     URL.revokeObjectURL(url);
   }
 }
+
+// Marge marché : ce qui reste du prix du marché hors TVA (prix_marche est en € TTC, TVA 20 %)
+// une fois payés le prix d'achat et les frais d'arrivée. null si un des deux prix manque.
+export const margeMarche = (pv, frais = 15) => {
+  const achat = pv?.prix_achat != null ? Number(pv.prix_achat) : null;
+  const marche = pv?.prix_marche != null ? Number(pv.prix_marche) : null;
+  if (achat == null || !marche) return null;
+  return 1 - (achat + (Number(frais) || 0)) / (marche / 1.2);
+};
+// 🟢 80 % et plus · 🟠 50 à 80 % · 🔴 moins de 50 %
+export const niveauMarge = (m) => (m == null ? null : m >= 0.8 ? 'vert' : m >= 0.5 ? 'orange' : 'rouge');

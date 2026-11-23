@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useDonnees, srcPhoto } from '../lib/donnees.jsx';
-import { STATUTS_PHARE, euro, yuan, libelleCote, lienGoogle, nombre, nomPays } from '../lib/outils.js';
+import { STATUTS_PHARE, euro, yuan, margeMarche, niveauMarge, libelleCote, lienGoogle, nombre, nomPays } from '../lib/outils.js';
 import { BoutonPhoto, ChoixShopify, Champ, Feuille, Icone, LienRef, PhotoGrande, Segments, Vignette } from '../composants/ui.jsx';
 
 // Infos Shopify d'un produit (somme des variantes)
@@ -35,7 +35,7 @@ export function PastillesVentes({ info }) {
 }
 
 export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
-  const { prive, shopify, comptoir } = useDonnees();
+  const { prive, shopify, comptoir, profil, reglages } = useDonnees();
   const pv = prive[phare.id];
   const info = infosShopify(shopify, comptoir, phare.shopify_product_id);
   const sel = selection?.has(phare.id);
@@ -86,6 +86,7 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
         </button>
         <LienRef valeur={phare.ref_oe} />
         <PastillesPhare phare={phare} />
+        {profil?.role === 'admin' && pv?.prix_marche != null && <PastilleMarge pv={pv} frais={reglages?.frais_arrivee ?? 15} />}
         {(pv?.prix_achat != null || pv?.prix_achat_rmb != null || pv?.prix_achat_variantes) && (
           <div className="prix-achat">
             <span className="lab">Achat</span>{' '}
@@ -124,6 +125,18 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Marge marché, seulement pour l'administrateur : 🟢 80 % et plus · 🟠 50 à 80 % · 🔴 moins de 50 %
+export function PastilleMarge({ pv, frais }) {
+  const m = margeMarche(pv, frais);
+  const n = niveauMarge(m);
+  if (!n) return <div className="pastilles"><span className="pastille p-gris">Marge marché : prix d'achat manquant</span></div>;
+  return (
+    <div className="pastilles">
+      <span className={`pastille p-${n}`}>Marge marché {Math.round(m * 100)} %</span>
     </div>
   );
 }
@@ -180,6 +193,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
       prix_achat: x?.prix_achat ?? '',
       prix_achat_rmb: x?.prix_achat_rmb ?? '',
       prix_achat_variantes: x?.prix_achat_variantes ?? '',
+      prix_marche: x?.prix_marche ?? '',
       prix_vente: x?.prix_vente ?? '',
       fournisseur: x?.fournisseur ?? '',
       lien: x?.lien ?? '',
@@ -213,6 +227,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
           prix_achat: achat,
           prix_achat_rmb: nombre(pv.prix_achat_rmb),
           prix_achat_variantes: pv.prix_achat_variantes?.trim() || null,
+          prix_marche: nombre(pv.prix_marche),
           prix_vente: nombre(pv.prix_vente) ?? (info?.prix != null ? Number(info.prix) : null),
           fournisseur: pv.fournisseur || null,
           lien: pv.lien || null,
@@ -292,7 +307,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
           {p.non_compatible && <span className="pastille p-rouge" style={{ justifySelf: 'start' }}>Non compatible</span>}
           {p.note && <Info l="Note" v={p.note} />}
         </div>
-        {(pvVisible.prix_vente != null || pvVisible.prix_achat != null || pvVisible.prix_achat_rmb != null || pvVisible.prix_achat_variantes || pvVisible.marge != null || pvVisible.fournisseur) && (
+        {(pvVisible.prix_vente != null || pvVisible.prix_achat != null || pvVisible.prix_achat_rmb != null || (admin && pvVisible.prix_marche != null) || pvVisible.prix_achat_variantes || pvVisible.marge != null || pvVisible.fournisseur) && (
           <div className="bloc">
             <div className="trois">
               {pvVisible.prix_achat != null && <Info l="Achat" v={euro(pvVisible.prix_achat)} />}
@@ -301,6 +316,12 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
               {pvVisible.marge != null && <Info l="Marge" v={euro(pvVisible.marge)} />}
             </div>
             {pvVisible.prix_achat_variantes && <Info l="Prix selon la version" v={pvVisible.prix_achat_variantes} />}
+            {admin && pvVisible.prix_marche != null && (
+              <div className="trois">
+                <Info l="Prix marché occasion" v={euro(pvVisible.prix_marche)} />
+                <Info l="Marge marché" v={margeMarche(pvVisible, d.reglages?.frais_arrivee ?? 15) != null ? `${Math.round(margeMarche(pvVisible, d.reglages?.frais_arrivee ?? 15) * 100)} %` : '—'} />
+              </div>
+            )}
             {pvVisible.fournisseur && <Info l="Fournisseur" v={pvVisible.fournisseur} />}
             {pvVisible.lien && (
               <a href={pvVisible.lien} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>
@@ -472,6 +493,9 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
             <input value={pv.prix_achat_rmb} onChange={majPv('prix_achat_rmb')} inputMode="decimal" />
           </Champ>
         </div>
+        <Champ label="Prix marché occasion (€ TTC)" aide={`Prix d'un phare d'origine d'occasion en Europe. La marge marché = ce prix hors TVA moins ton prix d'achat et ${d.reglages?.frais_arrivee ?? 15} € de frais d'arrivée.`}>
+          <input value={pv.prix_marche} onChange={majPv('prix_marche')} inputMode="decimal" />
+        </Champ>
         <Champ label="Prix selon la version (si plusieurs prix)">
           <input value={pv.prix_achat_variantes} onChange={majPv('prix_achat_variantes')} placeholder="Ex. Avec ventilateur : 600 ¥ · Sans ventilateur : 850 ¥" />
         </Champ>

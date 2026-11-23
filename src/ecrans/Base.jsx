@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { srcPhoto, useDonnees } from '../lib/donnees.jsx';
-import { libelleCote, nombre } from '../lib/outils.js';
+import { libelleCote, margeMarche, niveauMarge, nombre } from '../lib/outils.js';
 import { BarreFiltres, Champ, Feuille, Interrupteur, Segments, Vide, useFiltres } from '../composants/ui.jsx';
 import FichePhare, { CartePhare } from './FichePhare.jsx';
 
@@ -65,9 +65,22 @@ export default function Base({ mode }) {
       n.has(id) ? n.delete(id) : n.add(id);
       return n;
     });
-  const visibles = filtre.filtres.slice(0, limite);
+  // Commande phare (patron seulement) : filtre et tri par marge marché
+  const [filtreMarge, setFiltreMarge] = useState('toutes');
+  const [triMarge, setTriMarge] = useState(false);
+  const voitMarge = d.profil?.role === 'admin' && mode === 'commande';
+  const frais = d.reglages?.frais_arrivee ?? 15;
+  const liste = useMemo(() => {
+    if (!voitMarge) return filtre.filtres;
+    const m = (p) => margeMarche(d.prive[p.id], frais);
+    let l = filtre.filtres;
+    if (filtreMarge !== 'toutes') l = l.filter((p) => (niveauMarge(m(p)) || 'aucune') === filtreMarge);
+    if (triMarge) l = [...l].sort((a, b) => (m(b) ?? -9) - (m(a) ?? -9));
+    return l;
+  }, [voitMarge, filtre.filtres, filtreMarge, triMarge, d.prive, frais]);
+  const visibles = liste.slice(0, limite);
   // Envoi : les phares cochés s'il y en a, sinon toute la liste affichée
-  const aEnvoyer = selection.size ? filtre.filtres.filter((p) => selection.has(p.id)) : filtre.filtres;
+  const aEnvoyer = selection.size ? liste.filter((p) => selection.has(p.id)) : liste;
 
   return (
     <>
@@ -96,6 +109,21 @@ export default function Base({ mode }) {
               <Interrupteur actif={avecPrix} label="Mettre les prix d'achat dans le PDF" onChange={setAvecPrix} />
             </div>
           )}
+          {phares.length > 0 && voitMarge && (
+            <div className="bloc" style={{ marginBottom: 10 }}>
+              <div className="lab">Marge marché (visible seulement par toi)</div>
+              <Segments
+                petit
+                valeur={filtreMarge}
+                onChange={setFiltreMarge}
+                options={[['toutes', 'Toutes'], ['vert', '🟢 80 %+'], ['orange', '🟠 50-80 %'], ['rouge', '🔴 < 50 %'], ['aucune', 'Sans prix']]}
+              />
+              <div className="ligne-r" style={{ marginTop: 8 }}>
+                <span>Trier par marge (la plus forte en premier)</span>
+                <Interrupteur actif={triMarge} label="Trier par marge" onChange={setTriMarge} />
+              </div>
+            </div>
+          )}
           {phares.length > 0 && (
             <div className="deux" style={{ marginBottom: 10 }}>
               <button type="button" className="btn" onClick={() => partagerListe(aEnvoyer, setPartage, avecRef)} disabled={!!partage}>
@@ -113,18 +141,18 @@ export default function Base({ mode }) {
           </>
         ) : (
           <h2 className="groupe">
-            {filtre.filtres.length} phare{filtre.filtres.length > 1 ? 's' : ''}
+            {liste.length} phare{liste.length > 1 ? 's' : ''}
           </h2>
         )}
-        {cochable && filtre.filtres.length > 0 && (
+        {cochable && liste.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '-4px 0 8px' }}>
-            {filtre.filtres.every((p) => selection.has(p.id)) ? (
+            {liste.every((p) => selection.has(p.id)) ? (
               <button type="button" className="petit-bouton neutre" onClick={() => setSelection(new Set())}>
                 Tout désélectionner
               </button>
             ) : (
-              <button type="button" className="petit-bouton neutre" onClick={() => setSelection(new Set(filtre.filtres.map((p) => p.id)))}>
-                Tout sélectionner ({filtre.filtres.length})
+              <button type="button" className="petit-bouton neutre" onClick={() => setSelection(new Set(liste.map((p) => p.id)))}>
+                Tout sélectionner ({liste.length})
               </button>
             )}
           </div>
@@ -141,12 +169,12 @@ export default function Base({ mode }) {
             />
           ))}
         </div>
-        {filtre.filtres.length > limite && (
+        {liste.length > limite && (
           <button type="button" className="btn btn-plein" style={{ marginTop: 12 }} onClick={() => setLimite((l) => l + 100)}>
-            Voir plus ({filtre.filtres.length - limite} restants)
+            Voir plus ({liste.length - limite} restants)
           </button>
         )}
-        {!filtre.filtres.length && (
+        {!liste.length && (
           <Vide
             titre={
               phares.length
