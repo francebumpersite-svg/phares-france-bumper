@@ -238,6 +238,6 @@ button.carte { cursor: pointer; }
 /* Point de couleur de la marge marché devant le modèle */
 .point-marge { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
 .pm-vert { background: var(--vert); }
-.pm-orange { background: var(--orange); }
+.pm-orange { background: #f59e0b; }
 .pm-rouge { background: var(--rouge); }
 .pm-gris { background: transparent; border: 1.5px solid var(--ligne); }
