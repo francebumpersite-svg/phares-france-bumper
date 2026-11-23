@@ -229,3 +229,8 @@ button.carte { cursor: pointer; }
 .tuile-ca-sous { font-size: 13px; color: var(--texte-2); }
 .bloc-notif { background: var(--carte); border: 1px solid var(--ligne); border-radius: 14px; padding: 12px 16px 16px; }
 .bloc-notif .groupe { margin-top: 0; }
+
+/* Prix d'achat (€ et ¥) sur la carte d'un phare — visible seulement par ceux qui ont le droit */
+.prix-achat { font-weight: 600; font-size: 0.9rem; margin-top: 4px; }
+.prix-achat .lab { display: inline; margin-right: 4px; }
+.prix-achat .variantes { display: block; font-weight: 500; font-size: 0.85rem; }

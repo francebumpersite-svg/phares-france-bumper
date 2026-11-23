@@ -9,6 +9,9 @@ export const lienGoogle = (texte) => `https://www.google.com/search?q=${encodeUR
 const fmtEuro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 });
 export const euro = (n) => (n == null || n === '' || Number.isNaN(Number(n)) ? '—' : fmtEuro.format(Number(n)));
 
+const fmtYuan = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
+export const yuan = (n) => (n == null || n === '' || Number.isNaN(Number(n)) ? '—' : `${fmtYuan.format(Number(n))} ¥`);
+
 export const nombre = (v) => {
   if (v == null || v === '') return null;
   const n = Number(String(v).replace(',', '.').replace(/[^\d.-]/g, ''));

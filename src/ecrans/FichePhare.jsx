@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useDonnees, srcPhoto } from '../lib/donnees.jsx';
-import { STATUTS_PHARE, euro, libelleCote, lienGoogle, nombre, nomPays } from '../lib/outils.js';
+import { STATUTS_PHARE, euro, yuan, libelleCote, lienGoogle, nombre, nomPays } from '../lib/outils.js';
 import { BoutonPhoto, ChoixShopify, Champ, Feuille, Icone, LienRef, PhotoGrande, Segments, Vignette } from '../composants/ui.jsx';
 
 // Infos Shopify d'un produit (somme des variantes)
@@ -86,6 +86,15 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
         </button>
         <LienRef valeur={phare.ref_oe} />
         <PastillesPhare phare={phare} />
+        {(pv?.prix_achat != null || pv?.prix_achat_rmb != null || pv?.prix_achat_variantes) && (
+          <div className="prix-achat">
+            <span className="lab">Achat</span>{' '}
+            {pv.prix_achat != null || pv.prix_achat_rmb != null
+              ? [pv.prix_achat != null ? euro(pv.prix_achat) : null, pv.prix_achat_rmb != null ? yuan(pv.prix_achat_rmb) : null].filter(Boolean).join(' · ')
+              : null}
+            {pv.prix_achat_variantes && <span className="variantes">{pv.prix_achat_variantes}</span>}
+          </div>
+        )}
         {toutes.length > 1 && (
           <div className="mini-photos" aria-label={`${toutes.length} photos`}>
             {toutes.map((c, i) => (
@@ -169,6 +178,8 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
     const x = existant ? d.prive[existant.id] : null;
     return {
       prix_achat: x?.prix_achat ?? '',
+      prix_achat_rmb: x?.prix_achat_rmb ?? '',
+      prix_achat_variantes: x?.prix_achat_variantes ?? '',
       prix_vente: x?.prix_vente ?? '',
       fournisseur: x?.fournisseur ?? '',
       lien: x?.lien ?? '',
@@ -200,6 +211,8 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
     const prive = admin
       ? {
           prix_achat: achat,
+          prix_achat_rmb: nombre(pv.prix_achat_rmb),
+          prix_achat_variantes: pv.prix_achat_variantes?.trim() || null,
           prix_vente: nombre(pv.prix_vente) ?? (info?.prix != null ? Number(info.prix) : null),
           fournisseur: pv.fournisseur || null,
           lien: pv.lien || null,
@@ -279,13 +292,15 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
           {p.non_compatible && <span className="pastille p-rouge" style={{ justifySelf: 'start' }}>Non compatible</span>}
           {p.note && <Info l="Note" v={p.note} />}
         </div>
-        {(pvVisible.prix_vente != null || pvVisible.prix_achat != null || pvVisible.marge != null || pvVisible.fournisseur) && (
+        {(pvVisible.prix_vente != null || pvVisible.prix_achat != null || pvVisible.prix_achat_rmb != null || pvVisible.prix_achat_variantes || pvVisible.marge != null || pvVisible.fournisseur) && (
           <div className="bloc">
             <div className="trois">
               {pvVisible.prix_achat != null && <Info l="Achat" v={euro(pvVisible.prix_achat)} />}
+              {pvVisible.prix_achat_rmb != null && <Info l="Achat (¥)" v={yuan(pvVisible.prix_achat_rmb)} />}
               {pvVisible.prix_vente != null && <Info l="Vente" v={euro(pvVisible.prix_vente)} />}
               {pvVisible.marge != null && <Info l="Marge" v={euro(pvVisible.marge)} />}
             </div>
+            {pvVisible.prix_achat_variantes && <Info l="Prix selon la version" v={pvVisible.prix_achat_variantes} />}
             {pvVisible.fournisseur && <Info l="Fournisseur" v={pvVisible.fournisseur} />}
             {pvVisible.lien && (
               <a href={pvVisible.lien} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>
@@ -453,6 +468,14 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
           <Champ label="Achat (€)">
             <input value={pv.prix_achat} onChange={majPv('prix_achat')} inputMode="decimal" />
           </Champ>
+          <Champ label="Achat (¥)">
+            <input value={pv.prix_achat_rmb} onChange={majPv('prix_achat_rmb')} inputMode="decimal" />
+          </Champ>
+        </div>
+        <Champ label="Prix selon la version (si plusieurs prix)">
+          <input value={pv.prix_achat_variantes} onChange={majPv('prix_achat_variantes')} placeholder="Ex. Avec ventilateur : 600 ¥ · Sans ventilateur : 850 ¥" />
+        </Champ>
+        <div className="trois">
           <Champ label="Vente (€)" aide={info?.prix != null && pv.prix_vente === '' ? `Site : ${euro(info.prix)}` : null}>
             <input value={pv.prix_vente} onChange={majPv('prix_vente')} inputMode="decimal" placeholder={info?.prix != null ? String(info.prix) : ''} />
           </Champ>
