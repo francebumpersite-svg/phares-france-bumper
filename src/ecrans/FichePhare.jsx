@@ -86,6 +86,11 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
               <span className="val">{libelleCote(phare.cote)}</span>
             </span>
           </span>
+          {phare.type_eclairage && (
+            <span className="options-phare">
+              <span className="lab">Options</span> <span className="val">{phare.type_eclairage}</span>
+            </span>
+          )}
         </button>
         <LienRef valeur={phare.ref_oe} />
         <PastillesPhare phare={phare} />
@@ -429,14 +434,19 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
           <Champ label="Années">
             <input value={p.annees || ''} onChange={maj('annees')} placeholder="Ex. 2019–2023" />
           </Champ>
-          <Champ label="Type">
-            <select value={p.type_eclairage || ''} onChange={maj('type_eclairage')}>
-              <option value="">—</option>
-              <option>Halogène</option>
-              <option>Xénon</option>
-              <option>LED</option>
-              <option>Full LED</option>
-            </select>
+          <Champ label="Options (éclairage)">
+            {/* Texte libre : Full LED, Matrix LED, Bi-Xénon, Pixel LED… */}
+            <input list="types-eclairage" value={p.type_eclairage || ''} onChange={maj('type_eclairage')} placeholder="Ex. Full LED, Matrix LED" />
+            <datalist id="types-eclairage">
+              <option value="Halogène" />
+              <option value="Xénon" />
+              <option value="Bi-Xénon" />
+              <option value="LED" />
+              <option value="Full LED" />
+              <option value="Matrix LED" />
+              <option value="Pixel LED" />
+              <option value="Laser" />
+            </datalist>
           </Champ>
         </div>
         <Champ label="Côté">

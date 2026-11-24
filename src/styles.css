@@ -241,3 +241,8 @@ button.carte { cursor: pointer; }
 .pm-orange { background: #f59e0b; }
 .pm-rouge { background: var(--rouge); }
 .pm-gris { background: transparent; border: 1.5px solid var(--ligne); }
+
+/* Options du phare (Full LED, Matrix LED…) sous modèle / année / côté */
+.options-phare { display: block; margin-top: 4px; font-size: 13px; }
+.options-phare .lab { display: inline; margin-right: 4px; }
+.options-phare .val { font-weight: 600; }
