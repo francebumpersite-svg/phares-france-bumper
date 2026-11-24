@@ -115,6 +115,8 @@ export default function ImportAncienne() {
           photos_fiche: vuesFiche,
           photos_legendes: legendes,
           ...(versBase2 ? { base2: true, chine: true } : {}),
+          // Fichier préparé pour aller directement dans Commande phare
+          ...(versBase2 && data.en_commande ? { en_commande: true } : {}),
           created_at: f.creeLe || new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
