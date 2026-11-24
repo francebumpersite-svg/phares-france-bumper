@@ -159,3 +159,11 @@ export const margeMarche = (pv, frais = 15) => {
 };
 // 🟢 80 % et plus · 🟠 50 à 80 % · 🔴 moins de 50 %
 export const niveauMarge = (m) => (m == null ? null : m >= 0.8 ? 'vert' : m >= 0.5 ? 'orange' : 'rouge');
+
+// Quantité d'un phare en commande : 0 est permis (gardé dans la liste mais pas commandé) ; vide = 1
+export const qte = (p) => {
+  const v = p?.quantite;
+  if (v === null || v === undefined || v === '') return 1;
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? Math.max(0, n) : 1;
+};

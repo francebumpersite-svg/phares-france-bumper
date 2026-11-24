@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { srcPhoto, useDonnees } from '../lib/donnees.jsx';
-import { libelleCote, margeMarche, niveauMarge, nombre } from '../lib/outils.js';
+import { libelleCote, margeMarche, niveauMarge, nombre, qte } from '../lib/outils.js';
 import { BarreFiltres, Champ, Feuille, Interrupteur, Segments, Vide, useFiltres } from '../composants/ui.jsx';
 import FichePhare, { CartePhare } from './FichePhare.jsx';
 
@@ -80,7 +80,8 @@ export default function Base({ mode }) {
   }, [voitMarge, filtre.filtres, filtreMarge, triMarge, d.prive, frais]);
   const visibles = liste.slice(0, limite);
   // Envoi : les phares cochés s'il y en a, sinon toute la liste affichée
-  const aEnvoyer = selection.size ? liste.filter((p) => selection.has(p.id)) : liste;
+  // Les phares à quantité 0 restent dans la liste mais ne partent ni chez le fournisseur ni dans le PDF
+  const aEnvoyer = (selection.size ? liste.filter((p) => selection.has(p.id)) : liste).filter((p) => mode !== 'commande' || qte(p) > 0);
 
   return (
     <>
@@ -135,8 +136,8 @@ export default function Base({ mode }) {
             </div>
           )}
           <h2 className="groupe">
-            {phares.reduce((n, x) => n + (Number(x.quantite) || 1), 0)} phare
-            {phares.reduce((n, x) => n + (Number(x.quantite) || 1), 0) > 1 ? 's' : ''} à commander ({phares.length} référence{phares.length > 1 ? 's' : ''})
+            {phares.reduce((n, x) => n + qte(x), 0)} phare
+            {phares.reduce((n, x) => n + qte(x), 0) > 1 ? 's' : ''} à commander ({phares.length} référence{phares.length > 1 ? 's' : ''})
           </h2>
           </>
         ) : (
@@ -378,13 +379,13 @@ function CollerListe({ onFermer, nonCompatible, base2 }) {
 // Quantité à commander : sélecteur − / + pour l'admin, simple affichage pour les autres
 function Quantite({ phare, modifiable }) {
   const d = useDonnees();
-  const q = Math.max(1, Number(phare.quantite) || 1);
+  const q = qte(phare);
   if (!modifiable) return <div className="quantite-lecture">Quantité : <strong>{q}</strong></div>;
-  const changer = (n) => d.majPhares([phare.id], { quantite: Math.max(1, Math.min(999, n)) });
+  const changer = (n) => d.majPhares([phare.id], { quantite: Math.max(0, Math.min(999, n)) });
   return (
     <div className="quantite" role="group" aria-label={`Quantité de ${phare.marque} ${phare.modele || ''}`}>
       <span className="lab">Quantité</span>
-      <button type="button" aria-label="Enlever un" disabled={q <= 1} onClick={() => changer(q - 1)}>
+      <button type="button" aria-label="Enlever un" disabled={q <= 0} onClick={() => changer(q - 1)}>
         −
       </button>
       <input
@@ -393,7 +394,7 @@ function Quantite({ phare, modifiable }) {
         aria-label="Quantité"
         onChange={(e) => {
           const n = parseInt(e.target.value.replace(/\D/g, ''), 10);
-          if (n) changer(n);
+          if (!Number.isNaN(n)) changer(n);
         }}
       />
       <button type="button" aria-label="Ajouter un" onClick={() => changer(q + 1)}>
@@ -409,7 +410,7 @@ export function texteListe(phares, avecRef = true) {
   phares.forEach((p, i) => {
     const titre = [p.marque, p.modele].filter(Boolean).join(' ');
     const details = [p.annees, libelleCote(p.cote), p.type_eclairage].filter(Boolean).join(' · ');
-    const qte = `Quantité : ${Math.max(1, Number(p.quantite) || 1)}`;
+    const qte = `Quantité : ${qte(p)}`;
     lignes.push(`${i + 1}. ${titre}`, `   ${details}`, avecRef ? `   Réf. ${p.ref_oe || '—'} — ${qte}` : `   ${qte}`, '');
   });
   return lignes.join('\n').trim();
@@ -504,7 +505,7 @@ async function listePdf(phares, setEtat, avecRef = true, prix = null) {
     const H = 297;
     const marge = 12;
     const date = new Date().toLocaleDateString('fr-FR');
-    const total = phares.reduce((n, p) => n + Math.max(1, Number(p.quantite) || 1), 0);
+    const total = phares.reduce((n, p) => n + qte(p), 0);
     const entete = (page) => {
       doc.setFillColor(17, 17, 17);
       doc.rect(0, 0, L, 18, 'F');
@@ -531,7 +532,7 @@ async function listePdf(phares, setEtat, avecRef = true, prix = null) {
       let sansPrix = 0;
       let variantes = 0;
       for (const p of phares) {
-        const q = Math.max(1, Number(p.quantite) || 1);
+        const q = qte(p);
         const pv = prix[p.id];
         if (pv?.prix_achat != null || pv?.prix_achat_rmb != null) {
           totEur += (Number(pv.prix_achat) || 0) * q;
@@ -577,7 +578,7 @@ async function listePdf(phares, setEtat, avecRef = true, prix = null) {
       doc.setFontSize(12);
       doc.text(doc.splitTextToSize(`${i + 1}. ${[p.marque, p.modele].filter(Boolean).join(' ')}`, largeur - 40)[0], x, y + 7);
       doc.setTextColor(201, 42, 42);
-      doc.text(`Quantité : ${Math.max(1, Number(p.quantite) || 1)}`, L - marge - 4, y + 7, { align: 'right' });
+      doc.text(`Quantité : ${qte(p)}`, L - marge - 4, y + 7, { align: 'right' });
       doc.setTextColor(17, 17, 17);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
@@ -590,7 +591,7 @@ async function listePdf(phares, setEtat, avecRef = true, prix = null) {
         doc.text(`Réf. ${p.ref_oe || '—'}`, x, y + 19);
       }
       if (prix) {
-        const q = Math.max(1, Number(p.quantite) || 1);
+        const q = qte(p);
         let t;
         if (pv?.prix_achat != null || pv?.prix_achat_rmb != null) {
           const morceaux = [pv.prix_achat != null ? eurPdf(pv.prix_achat) : null, pv.prix_achat_rmb != null ? yuanPdf(pv.prix_achat_rmb) : null].filter(Boolean);

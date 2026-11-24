@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useDonnees, srcPhoto } from '../lib/donnees.jsx';
-import { STATUTS_PHARE, euro, yuan, margeMarche, niveauMarge, libelleCote, lienGoogle, nombre, nomPays } from '../lib/outils.js';
+import { STATUTS_PHARE, euro, yuan, margeMarche, niveauMarge, qte, libelleCote, lienGoogle, nombre, nomPays } from '../lib/outils.js';
 import { BoutonPhoto, ChoixShopify, Champ, Feuille, Icone, LienRef, PhotoGrande, Segments, Vignette } from '../composants/ui.jsx';
 
 // Infos Shopify d'un produit (somme des variantes)
@@ -161,7 +161,7 @@ export function PastillesPhare({ phare }) {
           {STATUTS_PHARE[phare.statut]}
         </span>
       )}
-      {phare.en_commande && (phare.base2 || phare.chine !== false) && <span className="pastille p-bleu">En commande · x{Math.max(1, Number(phare.quantite) || 1)}</span>}
+      {phare.en_commande && (phare.base2 || phare.chine !== false) && <span className={qte(phare) > 0 ? 'pastille p-bleu' : 'pastille p-gris'}>{qte(phare) > 0 ? `En commande · x${qte(phare)}` : 'Quantité 0 · pas commandé'}</span>}
       {phare.non_compatible && <span className="pastille p-rouge">Non compatible</span>}
       {info && info.stock <= 0 && <span className="pastille p-rouge">Rupture</span>}
       {info && info.stock > 0 && <span className="pastille p-vert">Stock {info.stock}</span>}
@@ -230,7 +230,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
     const ligne = {
       ...reste,
       marque: p.marque.trim(),
-      quantite: Math.max(1, Number(p.quantite) || 1)
+      quantite: qte(p)
     };
     const prive = admin
       ? {
