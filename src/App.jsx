@@ -90,10 +90,11 @@ function Coque() {
     if (role === 'lecteur') return ONGLETS.filter((o) => o.id !== 'vente');
     if (role === 'chine')
       return [
+        { id: 'commande', label: 'Commande phare' },
         { id: 'chine', label: 'Dropshipping' },
         { id: 'base', label: 'Base Chine' },
         { id: 'base2', label: 'Base 2' },
-        { id: 'commande', label: 'Commande phare' },
+        { id: 'non_compatibles', label: 'Non compatibles' },
         { id: 'retours', label: 'Retours client' }
       ];
     if (role === 'vendeur') {

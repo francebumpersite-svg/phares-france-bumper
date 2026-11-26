@@ -50,8 +50,8 @@ Deno.serve(async (req) => {
     if (!id) return json({ erreur: "Compte manquant" }, 400);
     if (id !== moi.id && !moiAcces) {
       // Un autre administrateur ne peut pas toucher au compte du patron (mot de passe, blocage, rôle)
-      const { data: cible } = await sb.from("profils").select("acces_fournisseurs").eq("id", id).maybeSingle();
-      if (cible?.acces_fournisseurs) return json({ erreur: "Ce compte ne peut être modifié que par son propriétaire" }, 403);
+      const { data: cible } = await sb.from("profils").select("est_patron").eq("id", id).maybeSingle();
+      if (cible?.est_patron) return json({ erreur: "Ce compte ne peut être modifié que par son propriétaire" }, 403);
     }
     if (id === moi.id && (corps.actif === false || (corps.role && corps.role !== "admin"))) {
       return json({ erreur: "Tu ne peux pas bloquer ou rétrograder ton propre compte" }, 400);
