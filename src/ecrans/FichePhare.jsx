@@ -73,7 +73,7 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
             <span>
               <span className="lab">Modèle</span>
               <span className="val">
-                {profil?.role === 'admin' && pv?.prix_marche != null && <PointMarge pv={pv} frais={reglages?.frais_arrivee ?? 15} />}
+                {['admin', 'chine'].includes(profil?.role) && pv?.prix_marche != null && <PointMarge pv={pv} frais={reglages?.frais_arrivee ?? 15} />}
                 {phare.modele || '—'}
               </span>
             </span>
@@ -94,7 +94,7 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
         </button>
         <LienRef valeur={phare.ref_oe} />
         <PastillesPhare phare={phare} />
-        {profil?.role === 'admin' && pv?.prix_marche != null && <PastilleMarge pv={pv} frais={reglages?.frais_arrivee ?? 15} />}
+        {['admin', 'chine'].includes(profil?.role) && pv?.prix_marche != null && <PastilleMarge pv={pv} frais={reglages?.frais_arrivee ?? 15} />}
         {(pv?.prix_achat != null || pv?.prix_achat_rmb != null || pv?.prix_achat_variantes) && (
           <div className="prix-achat">
             <span className="lab">Achat</span>{' '}
@@ -322,7 +322,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
           {p.non_compatible && <span className="pastille p-rouge" style={{ justifySelf: 'start' }}>Non compatible</span>}
           {p.note && <Info l="Note" v={p.note} />}
         </div>
-        {(pvVisible.prix_vente != null || pvVisible.prix_achat != null || pvVisible.prix_achat_rmb != null || (admin && pvVisible.prix_marche != null) || pvVisible.prix_achat_variantes || pvVisible.marge != null || pvVisible.fournisseur) && (
+        {(pvVisible.prix_vente != null || pvVisible.prix_achat != null || pvVisible.prix_achat_rmb != null || ((admin || d.profil?.role === 'chine') && pvVisible.prix_marche != null) || pvVisible.prix_achat_variantes || pvVisible.marge != null || pvVisible.fournisseur) && (
           <div className="bloc">
             <div className="trois">
               {pvVisible.prix_achat != null && <Info l="Achat" v={euro(pvVisible.prix_achat)} />}
@@ -331,7 +331,7 @@ export default function FichePhare({ phare, initial, onFermer, onEnregistre }) {
               {pvVisible.marge != null && <Info l="Marge" v={euro(pvVisible.marge)} />}
             </div>
             {pvVisible.prix_achat_variantes && <Info l="Prix selon la version" v={pvVisible.prix_achat_variantes} />}
-            {admin && pvVisible.prix_marche != null && (
+            {(admin || d.profil?.role === 'chine') && pvVisible.prix_marche != null && (
               <div className="trois">
                 <Info l="Prix marché occasion" v={euro(pvVisible.prix_marche)} />
                 <Info l="Marge marché" v={margeMarche(pvVisible, d.reglages?.frais_arrivee ?? 15) != null ? `${Math.round(margeMarche(pvVisible, d.reglages?.frais_arrivee ?? 15) * 100)} %` : '—'} />

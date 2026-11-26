@@ -68,7 +68,7 @@ export default function Base({ mode }) {
   // Commande phare (patron seulement) : filtre et tri par marge marché
   const [filtreMarge, setFiltreMarge] = useState('toutes');
   const [triMarge, setTriMarge] = useState(false);
-  const voitMarge = d.profil?.role === 'admin' && mode === 'commande';
+  const voitMarge = ['admin', 'chine'].includes(d.profil?.role) && mode === 'commande';
   const frais = d.reglages?.frais_arrivee ?? 15;
   const liste = useMemo(() => {
     if (!voitMarge) return filtre.filtres;
