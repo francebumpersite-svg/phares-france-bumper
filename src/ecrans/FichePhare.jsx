@@ -56,7 +56,7 @@ export function CartePhare({ phare, onOuvrir, selection, onSelection, extra }) {
       <Vignette
         chemin={phare.photos?.[0] || phare.photos_fiche?.[0]}
         url={!phare.photos?.[0] && !phare.photos_fiche?.[0] ? info?.image : null}
-        taille={64}
+        taille={110}
         onClick={() => {
           setDepart(0);
           toutes.length || info?.image ? setGrande(true) : onOuvrir(phare);
