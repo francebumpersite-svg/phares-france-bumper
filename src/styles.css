@@ -246,3 +246,21 @@ button.carte { cursor: pointer; }
 .options-phare { display: block; margin-top: 4px; font-size: 13px; }
 .options-phare .lab { display: inline; margin-right: 4px; }
 .options-phare .val { font-weight: 600; }
+
+/* Homologation phares */
+.homo { display: grid; gap: 14px; }
+.homo-intro { margin: 8px 2px 0; font-size: 15px; line-height: 1.45; }
+.homo-carte { background: var(--carte); border: 1px solid var(--ligne); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
+.homo-carte.ok { border-left: 6px solid #1f9d55; }
+.homo-carte.ko { border-left: 6px solid #dc1e1e; }
+.homo-titre { margin: 0; font-size: 17px; font-weight: 800; color: var(--noir); }
+.homo-photo { width: 100%; border-radius: 10px; border: 1px solid var(--ligne); display: block; }
+.homo-dessin { width: 100%; height: auto; display: block; }
+.homo-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 15px; line-height: 1.4; }
+.homo-num { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: #dc1e1e; color: #fff; font-weight: 800; font-size: 13px; align-items: center; justify-content: center; margin-right: 4px; }
+.homo-texte { margin: 0; font-size: 15px; line-height: 1.45; }
+.homo-note { margin: 0; font-size: 12px; color: var(--texte-2); }
+.homo-codes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; font-size: 14px; }
+.homo-code { display: flex; align-items: center; gap: 8px; }
+.homo-e { display: inline-flex; min-width: 34px; height: 34px; border: 2px solid var(--noir); border-radius: 50%; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; padding: 0 4px; }
+.homo-resume { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 15px; line-height: 1.4; }

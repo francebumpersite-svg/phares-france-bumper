@@ -14,6 +14,7 @@ import Dropshipping, { VueChine } from './ecrans/Dropshipping.jsx';
 import Retours from './ecrans/Retours.jsx';
 import VenteVendeur from './ecrans/VenteVendeur.jsx';
 import Reglages from './ecrans/Reglages.jsx';
+import Homologation from './ecrans/Homologation.jsx';
 
 export default function App() {
   const [session, setSession] = useState(undefined);
@@ -74,6 +75,8 @@ function Coque() {
     if (acces) ajouter({ id: 'fournisseurs', label: 'Fournisseurs' });
     // Chiffre d'affaires : seulement le patron
     if (patron) ajouter({ id: 'chiffre', label: "Chiffre d'affaires" });
+    // Homologation phares : pour tout le monde (aussi Moussa)
+    if (base.length) ajouter({ id: 'homologation', label: 'Homologation phares' });
     return base;
   }, [role, reglages, acces, patron]);
 
@@ -215,6 +218,7 @@ function Coque() {
       {actif === 'ruptures' && <Ruptures />}
       {actif === 'meilleures_ventes' && <MeilleuresVentes />}
       {actif === 'retours' && <Retours />}
+      {actif === 'homologation' && <Homologation />}
       {actif === 'reglages' && <Reglages />}
 
       {menu && (
