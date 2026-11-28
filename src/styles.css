@@ -264,3 +264,11 @@ button.carte { cursor: pointer; }
 .homo-code { display: flex; align-items: center; gap: 8px; }
 .homo-e { display: inline-flex; min-width: 34px; height: 34px; border: 2px solid var(--noir); border-radius: 50%; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; padding: 0 4px; }
 .homo-resume { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 15px; line-height: 1.4; }
+
+/* Accès d'un compte (patron) */
+.bloc-acces { border: 1px solid var(--ligne); border-radius: 12px; padding: 12px; display: grid; gap: 8px; margin-bottom: 12px; background: var(--fond, #f6f6f6); }
+.acces-ligne { display: flex; justify-content: space-between; gap: 10px; font-size: 15px; }
+.acces-ligne span { color: var(--texte-2); }
+.acces-ligne strong { font-family: ui-monospace, Menlo, monospace; font-size: 15px; word-break: break-all; text-align: right; }
+.acces-inconnu { font-family: inherit; font-weight: 400; color: var(--texte-2); }
+.acces-boutons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

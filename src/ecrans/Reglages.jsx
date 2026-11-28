@@ -23,6 +23,92 @@ const CHAMPS = [
   ['marge', 'Marge'],
   ['fournisseur', 'Fournisseur, lien et réf. fournisseur']
 ];
+
+const LIEN_APPLI = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}`;
+
+function messageAcces(nom, identifiant, mdp) {
+  return [
+    `Bonjour ${nom}, voici ton accès à l'appli Phares France Bumper :`,
+    '',
+    `Lien : ${LIEN_APPLI}`,
+    `Identifiant : ${identifiant}`,
+    `Mot de passe : ${mdp}`,
+    '',
+    '1. Ouvre le lien (Chrome sur Android, Safari sur iPhone).',
+    '2. Tape ton identifiant et ton mot de passe, puis « Se connecter ».',
+    "3. Pour l'avoir comme une appli : Android → menu ⋮ › « Ajouter à l'écran d'accueil » ; iPhone → bouton Partager › « Sur l'écran d'accueil »."
+  ].join('\n');
+}
+
+async function envoyerAcces(nom, identifiant, mdp) {
+  const texte = messageAcces(nom, identifiant, mdp);
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'Accès appli Phares France Bumper', text: texte });
+      return 'partage';
+    } catch (e) {
+      if (e?.name === 'AbortError') return 'annule';
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(texte);
+    return 'copie';
+  } catch {
+    return 'echec';
+  }
+}
+
+function BlocAcces({ compte, mdp, onNouveau }) {
+  const [info, setInfo] = useState('');
+  const [occupe, setOccupe] = useState(false);
+  return (
+    <div className="bloc-acces">
+      <div className="acces-ligne">
+        <span>Identifiant</span>
+        <strong>{compte.identifiant}</strong>
+      </div>
+      <div className="acces-ligne">
+        <span>Mot de passe</span>
+        <strong>{mdp || <em className="acces-inconnu">inconnu (créé avant)</em>}</strong>
+      </div>
+      <div className="acces-boutons">
+        <button
+          type="button"
+          className="btn btn-plein"
+          disabled={occupe}
+          onClick={async () => {
+            if (mdp && !window.confirm(`Créer un nouveau mot de passe pour ${compte.nom} ? L'ancien ne marchera plus.`)) return;
+            setOccupe(true);
+            setInfo('');
+            try {
+              await onNouveau();
+            } catch (e) {
+              setInfo(e.message);
+            } finally {
+              setOccupe(false);
+            }
+          }}
+        >
+          {occupe ? '…' : 'Nouveau mot de passe'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-rouge btn-plein"
+          disabled={!mdp}
+          onClick={async () => {
+            const r = await envoyerAcces(compte.nom, compte.identifiant, mdp);
+            setInfo(r === 'copie' ? 'Message copié : colle-le dans WhatsApp ou SMS.' : r === 'echec' ? "Impossible de partager ici." : '');
+          }}
+        >
+          Envoyer l'accès
+        </button>
+      </div>
+      {!mdp && <div className="aide">Ce mot de passe a été créé avant : appuie sur « Nouveau mot de passe » pour en avoir un que tu peux voir et envoyer.</div>}
+      {info && <div className="aide">{info}</div>}
+    </div>
+  );
+}
+
 const ROLES = { admin: 'Administrateur', vendeur: 'Vendeur', chine: 'Collègue Chine', lecteur: 'Lecture seule' };
 
 export default function Reglages() {
@@ -33,6 +119,7 @@ export default function Reglages() {
   const [edition, setEdition] = useState(null);
   const [filtre, setFiltre] = useState(r.filtre_shopify || 'title:phare* AND NOT title:pare*');
   const [msg, setMsg] = useState('');
+  const patron = !!(d.profil?.acces_fournisseurs || d.profil?.est_patron);
 
   const chargerComptes = async () => {
     try {
@@ -181,15 +268,21 @@ export default function Reglages() {
         <ModifierCompte
           compte={edition}
           moi={edition.id === d.profil.id}
+          patron={patron}
+          onNouveauMdp={async () => {
+            const res = await appelFonction('comptes', { action: 'nouveau_mdp', id: edition.id });
+            setEdition((x) => ({ ...x, mot_de_passe: res.mot_de_passe }));
+            setComptes((l) => l.map((c) => (c.id === edition.id ? { ...c, mot_de_passe: res.mot_de_passe } : c)));
+          }}
           onFermer={() => setEdition(null)}
           onModifier={async (champs) => {
             await modifierCompte(edition.id, champs);
             setEdition(null);
           }}
           onSupprimer={
-            d.profil?.acces_fournisseurs && edition.id !== d.profil.id
+            patron && edition.id !== d.profil.id && !edition.est_patron
               ? async () => {
-                  if (!window.confirm(`Supprimer définitivement le compte de ${edition.nom} (${edition.identifiant}) ? Il ne pourra plus se connecter.`)) return;
+                  if (!window.confirm(`Supprimer le compte de ${edition.nom} (${edition.identifiant}) ? Il ne pourra plus jamais se connecter. Ce qu'il a déjà enregistré dans l'appli reste.`)) return;
                   setMsg('');
                   try {
                     await appelFonction('comptes', { action: 'supprimer', id: edition.id });
@@ -213,6 +306,50 @@ function NouveauCompte({ onFermer, onCree }) {
   const [erreur, setErreur] = useState('');
   const [occupe, setOccupe] = useState(false);
   const maj = (k) => (e) => setC((x) => ({ ...x, [k]: e?.target ? e.target.value : e }));
+  const [cree, setCree] = useState(null);
+  const [info, setInfo] = useState('');
+  if (cree) {
+    return (
+      <Feuille
+        titre="Compte créé"
+        onFermer={onFermer}
+        pied={
+          <div className="deux">
+            <button type="button" className="btn btn-plein" onClick={onFermer}>
+              Fermer
+            </button>
+            <button
+              type="button"
+              className="btn btn-rouge btn-plein"
+              onClick={async () => {
+                const r = await envoyerAcces(cree.nom, cree.identifiant, cree.mdp);
+                setInfo(r === 'copie' ? 'Message copié : colle-le dans WhatsApp ou SMS.' : r === 'echec' ? 'Impossible de partager ici.' : '');
+              }}
+            >
+              Envoyer l'accès
+            </button>
+          </div>
+        }
+      >
+        <div className="bloc-acces">
+          <div className="acces-ligne">
+            <span>Nom</span>
+            <strong>{cree.nom}</strong>
+          </div>
+          <div className="acces-ligne">
+            <span>Identifiant</span>
+            <strong>{cree.identifiant}</strong>
+          </div>
+          <div className="acces-ligne">
+            <span>Mot de passe</span>
+            <strong>{cree.mdp}</strong>
+          </div>
+        </div>
+        <div className="aide">« Envoyer l'accès » prépare un message avec le lien de l'appli, l'identifiant, le mot de passe et les étapes, à envoyer par WhatsApp, SMS…</div>
+        {info && <div className="aide">{info}</div>}
+      </Feuille>
+    );
+  }
   return (
     <Feuille
       titre="Nouveau compte"
@@ -230,7 +367,7 @@ function NouveauCompte({ onFermer, onCree }) {
               try {
                 await appelFonction('comptes', { action: 'creer', ...c, identifiant: c.identifiant.trim().toLowerCase() });
                 await onCree();
-                onFermer();
+                setCree({ nom: c.nom.trim(), identifiant: c.identifiant.trim().toLowerCase(), mdp: c.mot_de_passe });
               } catch (e) {
                 setErreur(e.message);
               } finally {
@@ -252,14 +389,14 @@ function NouveauCompte({ onFermer, onCree }) {
       <Champ label="Identifiant" aide="Lettres minuscules et chiffres, sans espace. C'est ce qu'il tapera pour se connecter.">
         <input value={c.identifiant} onChange={maj('identifiant')} autoCapitalize="none" autoCorrect="off" placeholder="Ex. karim" />
       </Champ>
-      <Champ label="Mot de passe" aide="8 caractères minimum. Donne-le lui de vive voix.">
+      <Champ label="Mot de passe" aide="8 caractères minimum. Tu pourras l'envoyer juste après.">
         <input value={c.mot_de_passe} onChange={maj('mot_de_passe')} autoCapitalize="none" autoCorrect="off" />
       </Champ>
     </Feuille>
   );
 }
 
-function ModifierCompte({ compte, moi, onFermer, onModifier, onSupprimer }) {
+function ModifierCompte({ compte, moi, patron, onNouveauMdp, onFermer, onModifier, onSupprimer }) {
   const [nom, setNom] = useState(compte.nom);
   const [role, setRole] = useState(compte.role);
   const [mdp, setMdp] = useState('');
@@ -284,6 +421,7 @@ function ModifierCompte({ compte, moi, onFermer, onModifier, onSupprimer }) {
         </div>
       }
     >
+      {patron && <BlocAcces compte={compte} mdp={compte.mot_de_passe} onNouveau={onNouveauMdp} />}
       <Champ label="Nom">
         <input value={nom} onChange={(e) => setNom(e.target.value)} />
       </Champ>
